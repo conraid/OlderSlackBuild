@@ -8,7 +8,7 @@ Slackbuild no longer maintained in the repository slackers.it
 Repository contain contains everything (SlackBuild script, slack-desc file,
 plus all possible patch) you'll need when you want to build the packages yourself.
 
-For make package from slackbuild do
+If .info file is present, to make a package from slackbuild do
 
 # cd <program>
 
