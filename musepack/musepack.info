@@ -1,0 +1,6 @@
+NAME="musepack"
+VERSION="r435"
+HOMEPAGE="http://www.musepack.net/"
+DOWNLOAD="http://files.musepack.net/source/musepack_src_r435.tar.gz"
+REQUIRES="libcuefile libreplaygain"
+MD5SUM="0e858972978fe480fd1400b7331061de"
