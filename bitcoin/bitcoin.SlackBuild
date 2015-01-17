@@ -1,8 +1,8 @@
 #!/bin/sh
 #
-# Slackware build script for Xapian-Core
+# Slackware build script for bitcoin
 #
-# Copyright 2013 Corrado Franco (http://conraid.net)
+# Copyright 2013-2014  Corrado Franco (http://conraid.net)
 # All rights reserved.
 #
 # Redistribution and use of this script, with or without modification, is
@@ -24,15 +24,15 @@
 #
 # Latest version of this SlackBuild at http://slackers.it/repository
 #
-# Exit on most errors
-set -e
+# Exit on most errors or unset variables
+set -eu
 
 # Set variables:
 CWD=$(pwd)
 
-PRGNAME=${PRGNAME:-xapian-core}
+PRGNAME=${PRGNAME:-bitcoin}
 PKGNAME=$(echo $PRGNAME | tr A-Z a-z)
-VERSION=${VERSION:-$(echo $PRGNAME-*.tar.?z* | rev | cut -f3- -d. | cut -f1 -d- | rev)}
+VERSION=${VERSION:-0.9.3}
 PKGVERSION=$(echo $VERSION | tr - _)
 BUILD=${BUILD:-1}
 TAG=${TAG:-cf}
@@ -41,8 +41,9 @@ PKG=$TMP/package-$PKGNAME
 DOCS="$PKG/usr/doc/$PKGNAME-$PKGVERSION"
 
 # Insert document files in this variable
-DOCFILES="AUTHORS COPYING ChangeLog HACKING INSTALL NEWS README PLATFORMS"
+DOCFILES="COPYING INSTALL README*"
 
+ARCH=${ARCH:=""} # Set ARCH or leave blank to determine it automatically
 # Automatically determine the architecture we're building on:
 if [ -z "$ARCH" ]; then
     case "$( uname -m )" in
@@ -85,7 +86,13 @@ cd $PRGNAME-$VERSION
 chown -R root:root .
 chmod -R u+w,go+r-w,a-s .
 
-# Configure
+# Configure and build
+if [ -e ./autogen.sh ]; then
+LDFLAGS="$SLKLDFLAGS" \
+CFLAGS="$SLKCFLAGS" \
+CXXFLAGS="$SLKCFLAGS" \
+./autogen.sh --noconfig
+fi
 LDFLAGS="$SLKLDFLAGS" \
 CFLAGS="$SLKCFLAGS" \
 CXXFLAGS="$SLKCFLAGS" \
@@ -97,14 +104,23 @@ CXXFLAGS="$SLKCFLAGS" \
   --mandir=/usr/man \
   --infodir=/usr/info \
   --docdir=/usr/doc/${PKGNAME}-${PKGVERSION} \
-  --enable-static=no \
-  --enable-shared=yes \
+  --with-gui=qt4 \
+  --with-incompatible-bdb \
+  --disable-tests \
   --host=$CHOST-slackware-linux \
   --build=$CHOST-slackware-linux
-
-# Build and install:
 make
+
+# Install
 make DESTDIR=$PKG install
+
+install -Dm0644 contrib/debian/manpages/bitcoin-qt.1 $PKG/usr/man/man1/bitcoin-qt.1
+install -Dm0644 contrib/debian/manpages/bitcoind.1 $PKG/usr/man/man1/bitcoind.1
+install -Dm0644 contrib/debian/manpages/bitcoin.conf.5 $PKG/usr/man/man5/bitcoin.conf.5
+
+install -Dm0644 share/pixmaps/bitcoin128.png $PKG/usr/share/pixmaps/bitcoin128.png
+install -Dm0644 contrib/debian/bitcoin-qt.desktop $PKG/usr/share/applications/bitcoin-qt.desktop
+install -Dm0644 contrib/debian/bitcoin-qt.protocol $PKG/usr/share/kde4/services/bitcoin-qt.protocol
 
 # Strip binaries:
 find $PKG | xargs file | grep -e "executable" -e "shared object" | grep ELF | cut -f 1 -d : | xargs -r strip --strip-unneeded 2> /dev/null || true
@@ -112,30 +128,23 @@ find $PKG | xargs file | grep "current ar archive" | cut -f 1 -d : | xargs -r st
 
 # Compress and link manpages, if any:
 if [ -d $PKG/usr/man ]; then
-( cd $PKG/usr/man
-  find -type f -exec gzip -9 {} \;
-  for i in $(find -type l); do ln -s $(readlink $i).gz $i.gz; rm $i; done
-)
+    find $PKG/usr/man -type f -exec gzip -9 {} \;
+    for i in $( find $PKG/usr/man -type l ) ; do ln -s $( readlink $i ).gz $i.gz ; rm $i ; done
 fi
 
 # Add a documentation directory:
 mkdir -p ${DOCS}
-for i in ${DOCFILES}; do
-    if [ -e "${i}" ]; then
-        if ! [ -L "${i}" ]; then
-	    cp -a "${i}" ${DOCS}
-	else
-	    cp -LRp "${i}" ${DOCS}
-        fi
-    fi;
-done
-rm -rf $DOCS/apidoc
+cp -a $DOCFILES $DOCS || true
+install -Dm644 contrib/debian/examples/bitcoin.conf $DOCS/examples/bitcoin.conf
 
 # Add a slackbuild script:
 install -Dm644 $CWD/$PKGNAME.SlackBuild $DOCS/$PKGNAME.SlackBuild
 
 # Add slack-desc
 install -Dm644 $CWD/slack-desc $PKG/install/slack-desc
+
+# Add a doinst.sh
+install -Dm644 $CWD/doinst.sh $PKG/install/doinst.sh
 
 # Create package:
 cd $PKG
