@@ -1,0 +1,1918 @@
+From dd36c00d0eb8b8eff2b9c2457b9d4b050271e249 Mon Sep 17 00:00:00 2001
+From: Anders Brander <anders@brander.dk>
+Date: Sun, 30 Nov 2014 02:51:46 +0100
+Subject: [PATCH] Fixed all glib deprecated warnings.
+
+---
+ librawstudio/conf_interface.c                      | 50 +++++++++---------
+ librawstudio/rs-1d-function.c                      |  6 +--
+ librawstudio/rs-color-space.c                      |  6 +--
+ librawstudio/rs-dcp-file.c                         |  6 +--
+ librawstudio/rs-filetypes.c                        | 14 ++---
+ librawstudio/rs-filter-request.c                   |  6 +--
+ librawstudio/rs-io.c                               | 28 +++++-----
+ librawstudio/rs-job-queue.c                        | 60 ++++++++++------------
+ librawstudio/rs-lens-db.c                          | 14 ++---
+ librawstudio/rs-library.c                          | 40 +++++++--------
+ librawstudio/rs-metadata.c                         |  6 +--
+ librawstudio/rs-profile-factory.c                  | 12 ++---
+ librawstudio/rs-utils.c                            | 18 +++----
+ plugins/cache/cache.c                              | 18 +++----
+ plugins/colorspace-adobergb/colorspace-adobergb.c  |  6 +--
+ plugins/colorspace-prophoto/colorspace-prophoto.c  |  6 +--
+ plugins/colorspace-srgb/colorspace-srgb.c          |  6 +--
+ .../colorspace-transform/colorspace_transform.c    |  2 +-
+ plugins/colorspace-transform/rs-cmm.c              |  8 +--
+ plugins/dcp/dcp.c                                  | 20 ++++----
+ plugins/demosaic/demosaic.c                        |  6 +--
+ plugins/lensfun/lensfun.c                          |  4 +-
+ plugins/resample/resample.c                        | 18 +++----
+ plugins/rotate/rotate.c                            |  2 +-
+ src/application.c                                  | 12 ++---
+ src/eog-pixbuf-cell-renderer.c                     | 10 ++--
+ src/gtk-helper.c                                   |  6 +--
+ src/gtk-interface.c                                |  6 +--
+ src/rs-actions.c                                   | 20 ++++----
+ src/rs-camera-db.c                                 |  6 +--
+ src/rs-geo-db.c                                    |  6 +--
+ src/rs-preview-widget.c                            | 32 ++++++------
+ src/rs-store.c                                     | 10 ++--
+ src/rs-tethered-shooting.c                         |  4 +-
+ src/rs-toolbox.c                                   |  6 +--
+ 35 files changed, 233 insertions(+), 247 deletions(-)
+
+diff --git a/librawstudio/conf_interface.c b/librawstudio/conf_interface.c
+index ff7a01e..dfd2288 100644
+--- a/librawstudio/conf_interface.c
++++ b/librawstudio/conf_interface.c
+@@ -30,7 +30,7 @@
+ #ifdef WITH_GCONF
+  #include <gconf/gconf-client.h>
+  #define GCONF_PATH "/apps/rawstudio/"
+- static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++ static GMutex lock;
+ #else
+  #ifdef G_OS_WIN32
+   #include <windows.h>
+@@ -45,7 +45,7 @@ rs_conf_get_boolean(const gchar *name, gboolean *boolean_value)
+ 	gboolean ret = FALSE;
+ #ifdef WITH_GCONF
+ 	GConfValue *gvalue;
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	GConfClient *client = gconf_client_get_default();
+ 	GString *fullname = g_string_new(GCONF_PATH);
+ 	g_string_append(fullname, name);
+@@ -64,7 +64,7 @@ rs_conf_get_boolean(const gchar *name, gboolean *boolean_value)
+ 		}
+ 		g_object_unref(client);
+ 	}
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 	g_string_free(fullname, TRUE);
+ #endif
+ #ifdef WITH_REGISTRY
+@@ -84,7 +84,7 @@ rs_conf_get_boolean_with_default(const gchar *name, gboolean *boolean_value, gbo
+ 	GConfClient *client = gconf_client_get_default();
+ 	GString *fullname = g_string_new(GCONF_PATH);
+ 	g_string_append(fullname, name);
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	if (client)
+ 	{
+ 		gvalue = gconf_client_get(client, fullname->str, NULL);
+@@ -100,7 +100,7 @@ rs_conf_get_boolean_with_default(const gchar *name, gboolean *boolean_value, gbo
+ 		}
+ 		g_object_unref(client);
+ 	}
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 	g_string_free(fullname, TRUE);
+ #endif
+ #ifdef WITH_REGISTRY
+@@ -114,7 +114,7 @@ rs_conf_set_boolean(const gchar *name, gboolean bool_value)
+ {
+ 	gboolean ret = FALSE;
+ #ifdef WITH_GCONF
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	GConfClient *client = gconf_client_get_default();
+ 	GString *fullname = g_string_new(GCONF_PATH);
+ 	g_string_append(fullname, name);
+@@ -123,7 +123,7 @@ rs_conf_set_boolean(const gchar *name, gboolean bool_value)
+ 		ret = gconf_client_set_bool(client, fullname->str, bool_value, NULL);
+ 		g_object_unref(client);
+ 	}
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 	g_string_free(fullname, TRUE);
+ #endif
+ #ifdef WITH_REGISTRY
+@@ -138,7 +138,7 @@ rs_conf_get_string(const gchar *name)
+ 	gchar *ret=NULL;
+ #ifdef WITH_GCONF
+ 	GConfValue *gvalue;
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	GConfClient *client = gconf_client_get_default();
+ 	GString *fullname = g_string_new(GCONF_PATH);
+ 	g_string_append(fullname, name);
+@@ -153,7 +153,7 @@ rs_conf_get_string(const gchar *name)
+ 		}
+ 		g_object_unref(client);
+ 	}
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 	g_string_free(fullname, TRUE);
+ #endif
+ #ifdef WITH_REGISTRY
+@@ -185,14 +185,14 @@ rs_conf_set_string(const gchar *name, const gchar *string_value)
+ {
+ 	gboolean ret = FALSE;
+ #ifdef WITH_GCONF
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	GConfClient *client = gconf_client_get_default();
+ 	GString *fullname = g_string_new(GCONF_PATH);
+ 	g_string_append(fullname, name);
+ 	if (client)
+ 	{
+ 		ret = gconf_client_set_string(client, fullname->str, string_value, NULL);
+-		g_static_mutex_unlock(&lock);
++		g_mutex_unlock(&lock);
+ 	}
+ 	g_object_unref(client);
+ 	g_string_free(fullname, TRUE);
+@@ -215,7 +215,7 @@ rs_conf_get_integer(const gchar *name, gint *integer_value)
+ {
+ 	gboolean ret=FALSE;
+ #ifdef WITH_GCONF
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	GConfValue *gvalue;
+ 	GConfClient *client = gconf_client_get_default();
+ 	GString *fullname = g_string_new(GCONF_PATH);
+@@ -234,7 +234,7 @@ rs_conf_get_integer(const gchar *name, gint *integer_value)
+ 		}
+ 		g_object_unref(client);
+ 	}
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 	g_string_free(fullname, TRUE);
+ #endif
+ #ifdef WITH_REGISTRY
+@@ -267,7 +267,7 @@ rs_conf_set_integer(const gchar *name, const gint integer_value)
+ {
+ 	gboolean ret = FALSE;
+ #ifdef WITH_GCONF
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	GConfClient *client = gconf_client_get_default();
+ 	GString *fullname = g_string_new(GCONF_PATH);
+ 	g_string_append(fullname, name);
+@@ -276,7 +276,7 @@ rs_conf_set_integer(const gchar *name, const gint integer_value)
+ 		ret = gconf_client_set_int(client, fullname->str, integer_value, NULL);
+ 		g_object_unref(client);
+ 	}
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 	g_string_free(fullname, TRUE);
+ #endif
+ #ifdef WITH_REGISTRY
+@@ -328,7 +328,7 @@ rs_conf_get_double(const gchar *name, gdouble *float_value)
+ 	gboolean ret=FALSE;
+ #ifdef WITH_GCONF
+ 	GConfValue *gvalue;
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	GConfClient *client = gconf_client_get_default();
+ 	GString *fullname = g_string_new(GCONF_PATH);
+ 	g_string_append(fullname, name);
+@@ -346,7 +346,7 @@ rs_conf_get_double(const gchar *name, gdouble *float_value)
+ 		}
+ 		g_object_unref(client);
+ 	}
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 	g_string_free(fullname, TRUE);
+ #endif
+ #ifdef WITH_REGISTRY
+@@ -379,7 +379,7 @@ rs_conf_set_double(const gchar *name, const gdouble float_value)
+ {
+ 	gboolean ret = FALSE;
+ #ifdef WITH_GCONF
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	GConfClient *client = gconf_client_get_default();
+ 	GString *fullname = g_string_new(GCONF_PATH);
+ 	g_string_append(fullname, name);
+@@ -388,7 +388,7 @@ rs_conf_set_double(const gchar *name, const gdouble float_value)
+ 		ret = gconf_client_set_float(client, fullname->str, float_value, NULL);
+ 		g_object_unref(client);
+ 	}
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 	g_string_free(fullname, TRUE);
+ #endif
+ #ifdef WITH_REGISTRY
+@@ -409,7 +409,7 @@ rs_conf_get_list_string(const gchar *name)
+ {
+ 	GSList *list = NULL;
+ #ifdef WITH_GCONF
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	GConfClient *client = gconf_client_get_default();
+ 	GString *fullname = g_string_new(GCONF_PATH);
+ 
+@@ -419,7 +419,7 @@ rs_conf_get_list_string(const gchar *name)
+ 		list = gconf_client_get_list(client, fullname->str, GCONF_VALUE_STRING, NULL);
+ 		g_object_unref(client);
+ 	}
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 	g_string_free(fullname, TRUE);
+ #else
+ 	/* FIXME: windows stub */
+@@ -432,7 +432,7 @@ rs_conf_set_list_string(const gchar *name, GSList *list)
+ {
+ 	gboolean ret = FALSE;
+ #ifdef WITH_GCONF
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	GConfClient *client = gconf_client_get_default();
+ 	GString *fullname = g_string_new(GCONF_PATH);
+ 
+@@ -442,7 +442,7 @@ rs_conf_set_list_string(const gchar *name, GSList *list)
+ 		ret = gconf_client_set_list(client, fullname->str, GCONF_VALUE_STRING, list, NULL);
+ 		g_object_unref(client);
+ 	}
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 	g_string_free(fullname, TRUE);
+ #else
+ 	/* FIXME: windows stub */
+@@ -494,7 +494,7 @@ rs_conf_unset(const gchar *name)
+ {
+ 	gboolean ret = FALSE;
+ #ifdef WITH_GCONF
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	GConfClient *client = gconf_client_get_default();
+ 	GString *fullname = g_string_new(GCONF_PATH);
+ 	g_string_append(fullname, name);
+@@ -503,7 +503,7 @@ rs_conf_unset(const gchar *name)
+ 		ret = gconf_client_unset(client, fullname->str, NULL);
+ 		g_object_unref(client);
+ 	}
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 	g_string_free(fullname, TRUE);
+ #endif
+ #ifdef WITH_REGISTRY
+diff --git a/librawstudio/rs-1d-function.c b/librawstudio/rs-1d-function.c
+index 970aa39..91e5c81 100644
+--- a/librawstudio/rs-1d-function.c
++++ b/librawstudio/rs-1d-function.c
+@@ -48,13 +48,13 @@ rs_1d_function_new(void)
+ const RS1dFunction *
+ rs_1d_function_new_singleton(void)
+ {
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++	static GMutex lock;
+ 	static RS1dFunction *func = NULL;
+ 
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	if (!func)
+ 		func = rs_1d_function_new();
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 
+ 	return func;
+ }
+diff --git a/librawstudio/rs-color-space.c b/librawstudio/rs-color-space.c
+index f9bc22a..6cecc0e 100644
+--- a/librawstudio/rs-color-space.c
++++ b/librawstudio/rs-color-space.c
+@@ -44,11 +44,11 @@ rs_color_space_new_singleton(const gchar *name)
+ {
+ 	RSColorSpace *color_space = NULL;
+ 	static GHashTable *singletons = NULL;
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++	static GMutex lock;
+ 
+ 	g_return_val_if_fail(name != NULL, NULL);
+ 
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 
+ 	if (!singletons)
+ 		singletons = g_hash_table_new(g_str_hash, g_str_equal);
+@@ -66,7 +66,7 @@ rs_color_space_new_singleton(const gchar *name)
+ 			g_hash_table_insert(singletons, (gpointer) name, color_space);
+ 	}
+ 
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 
+ 	return color_space;
+ }
+diff --git a/librawstudio/rs-dcp-file.c b/librawstudio/rs-dcp-file.c
+index 14988ee..4ffb505 100644
+--- a/librawstudio/rs-dcp-file.c
++++ b/librawstudio/rs-dcp-file.c
+@@ -195,11 +195,11 @@ read_illuminant(RSDcpFile *dcp_file, guint ifd, gushort tag)
+ static const gchar *
+ read_ascii(RSDcpFile *dcp_file, guint ifd, gushort tag, gchar **cache)
+ {
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
+-	g_static_mutex_lock(&lock);
++	static GMutex lock;
++	g_mutex_lock(&lock);
+ 	if (!*cache)
+ 		*cache = rs_tiff_get_ascii(RS_TIFF(dcp_file), ifd, tag);
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 
+ 	return *cache;
+ }
+diff --git a/librawstudio/rs-filetypes.c b/librawstudio/rs-filetypes.c
+index 7a545fc..3e89f04 100644
+--- a/librawstudio/rs-filetypes.c
++++ b/librawstudio/rs-filetypes.c
+@@ -26,7 +26,7 @@ static gpointer filetype_search(GTree *tree, const gchar *filename, gint *priori
+ static void filetype_add_to_tree(GTree *tree, const gchar *extension, const gchar *description, const gpointer func, const gint priority, const RSLoaderFlags flags);
+ 
+ static gboolean rs_filetype_is_initialized = FALSE;
+-static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++static GMutex lock;
+ static GTree *loaders = NULL;
+ static GTree *meta_loaders = NULL;
+ 
+@@ -98,9 +98,9 @@ filetype_search(GTree *tree, const gchar *filename, gint *priority, const RSLoad
+ 		needle.func = NULL;
+ 		needle.flags = flags;
+ 
+-		g_static_mutex_lock(&lock);
++		g_mutex_lock(&lock);
+ 		g_tree_foreach(tree, filetype_search_traverse, &needle);
+-		g_static_mutex_unlock(&lock);
++		g_mutex_unlock(&lock);
+ 
+ 		g_free(needle.extension);
+ 		func = needle.func;
+@@ -127,9 +127,9 @@ filetype_add_to_tree(GTree *tree, const gchar *extension, const gchar *descripti
+ 	filetype->priority = priority;
+ 	filetype->flags = flags;
+ 
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	g_tree_insert(tree, filetype, func);
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ }
+ 
+ /**
+@@ -139,13 +139,13 @@ filetype_add_to_tree(GTree *tree, const gchar *extension, const gchar *descripti
+ void
+ rs_filetype_init(void)
+ {
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	if (rs_filetype_is_initialized)
+ 		return;
+ 	rs_filetype_is_initialized = TRUE;
+ 	loaders = g_tree_new(tree_sort);
+ 	meta_loaders = g_tree_new(tree_sort);
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ }
+ 
+ /**
+diff --git a/librawstudio/rs-filter-request.c b/librawstudio/rs-filter-request.c
+index 227c33d..9ed126e 100644
+--- a/librawstudio/rs-filter-request.c
++++ b/librawstudio/rs-filter-request.c
+@@ -67,15 +67,15 @@ rs_filter_request_new(void)
+ const RSFilterRequest *rs_filter_request_get_quick_singleton(void)
+ {
+ 	RSFilterRequest *request = NULL;
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++	static GMutex lock;
+ 
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	if (!request)
+ 	{
+ 		request = rs_filter_request_new();
+ 		rs_filter_request_set_quick(request, TRUE);
+ 	}
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 
+ 	return request;
+ }
+diff --git a/librawstudio/rs-io.c b/librawstudio/rs-io.c
+index 8749ce7..47e9232 100644
+--- a/librawstudio/rs-io.c
++++ b/librawstudio/rs-io.c
+@@ -19,13 +19,13 @@
+ 
+ #include "rs-io.h"
+ 
+-static GStaticMutex init_lock = G_STATIC_MUTEX_INIT;
++static GMutex init_lock;
+ static GAsyncQueue *queue = NULL;
+-static GStaticRecMutex io_lock = G_STATIC_REC_MUTEX_INIT;
++static GRecMutex io_lock;
+ static GTimer *io_lock_timer = NULL;
+ static gboolean pause_queue = FALSE;
+ static gint queue_active_count = 0;
+-static GStaticMutex count_lock = G_STATIC_MUTEX_INIT;
++static GMutex count_lock;
+ 
+ 
+ static gint
+@@ -54,20 +54,20 @@ queue_worker(gpointer data)
+ 			g_usleep(1000);
+ 		else
+ 		{
+-			g_static_mutex_lock(&count_lock);
++			g_mutex_lock(&count_lock);
+ 			job = g_async_queue_try_pop(queue);
+ 			if (job)
+ 				queue_active_count++;
+-			g_static_mutex_unlock(&count_lock);
++			g_mutex_unlock(&count_lock);
+ 
+ 			/* If we somehow got NULL, continue. I'm not sure this will ever happen, but this is better than random segfaults :) */
+ 			if (job)
+ 			{
+ 				rs_io_job_execute(job);
+ 				rs_io_job_do_callback(job);
+-				g_static_mutex_lock(&count_lock);
++				g_mutex_lock(&count_lock);
+ 				queue_active_count--;
+-				g_static_mutex_unlock(&count_lock);
++				g_mutex_unlock(&count_lock);
+ 			}
+ 			else
+ 			{
+@@ -84,16 +84,16 @@ static void
+ init(void)
+ {
+ 	int i;
+-	g_static_mutex_lock(&init_lock);
++	g_mutex_lock(&init_lock);
+ 	if (!queue)
+ 	{
+ 		queue = g_async_queue_new();
+ 		for (i = 0; i < rs_get_number_of_processor_cores(); i++)
+-			g_thread_create(queue_worker, queue, FALSE, NULL);
++			g_thread_new("io worker", queue_worker, queue);
+ 
+ 		io_lock_timer = g_timer_new();
+ 	}
+-	g_static_mutex_unlock(&init_lock);
++	g_mutex_unlock(&init_lock);
+ }
+ 
+ /**
+@@ -309,7 +309,7 @@ rs_io_lock_real(const gchar *source_file, gint line, const gchar *caller)
+ 	/* Each loop tries approx every millisecond, so we wait 10 secs */
+ 	int tries_left = 10*1000;
+ 
+-	while (FALSE == g_static_rec_mutex_trylock(&io_lock));
++	while (FALSE == g_rec_mutex_trylock(&io_lock));
+ 	{
+ 		g_usleep(1000);
+ 		if (--tries_left <= 0)
+@@ -339,7 +339,7 @@ rs_io_unlock_real(const gchar *source_file, gint line, const gchar *caller)
+ 		g_timer_elapsed(io_lock_timer, NULL)*1000.0,
+ 		g_thread_self());
+ 
+-	g_static_rec_mutex_unlock(&io_lock);
++	g_rec_mutex_unlock(&io_lock);
+ }
+ 
+ /**
+@@ -366,8 +366,8 @@ rs_io_idle_unpause(void)
+ gint
+ rs_io_get_jobs_left(void)
+ {
+-	g_static_mutex_lock(&count_lock);
++	g_mutex_lock(&count_lock);
+ 	gint left = g_async_queue_length(queue) + queue_active_count;
+-	g_static_mutex_unlock(&count_lock);
++	g_mutex_unlock(&count_lock);
+ 	return left;
+ }
+\ No newline at end of file
+diff --git a/librawstudio/rs-job-queue.c b/librawstudio/rs-job-queue.c
+index 78e9c93..3e4f7d4 100644
+--- a/librawstudio/rs-job-queue.c
++++ b/librawstudio/rs-job-queue.c
+@@ -32,15 +32,16 @@ struct _RSJob {
+ 	gpointer data;
+ 	gpointer result;
+ 	gboolean done;
+-	GCond *done_cond;
+-	GMutex *done_mutex;
++	gboolean waitable;
++	GCond done_cond;
++	GMutex done_mutex;
+ };
+ 
+ struct _RSJobQueue {
+ 	GObject parent;
+ 	gboolean dispose_has_run;
+ 
+-	GMutex *lock;
++	GMutex lock;
+ 	GThreadPool *pool;
+ 	gint n_slots;
+ 	GtkWidget *window;
+@@ -60,7 +61,7 @@ rs_job_queue_dispose (GObject *object)
+ 	{
+ 		job_queue->dispose_has_run = TRUE;
+ 
+-		g_mutex_free(job_queue->lock);
++		g_mutex_clear(&job_queue->lock);
+ 	}
+ 
+ 	/* Chain up */
+@@ -79,7 +80,7 @@ static void
+ rs_job_queue_init(RSJobQueue *job_queue)
+ {
+ 	job_queue->dispose_has_run = FALSE;
+-	job_queue->lock = g_mutex_new();
++	g_mutex_init(&job_queue->lock);
+ 	job_queue->pool = g_thread_pool_new(((GFunc) job_consumer), NULL, rs_get_number_of_processor_cores(), TRUE, NULL);
+ 	job_queue->n_slots = 0;
+ 	job_queue->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+@@ -126,12 +127,12 @@ static RSJobQueue *
+ rs_job_queue_get_singleton(void)
+ {
+ 	static RSJobQueue *singleton = NULL;
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++	static GMutex lock;
+ 
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	if (!singleton)
+ 		singleton = rs_job_queue_new();
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 
+ 	g_assert(RS_IS_JOB_QUEUE(singleton));
+ 
+@@ -150,7 +151,7 @@ rs_job_queue_add_slot(RSJobQueue *job_queue)
+ 
+ 	RSJobQueueSlot *slot = g_new0(RSJobQueueSlot, 1);
+ 
+-	g_mutex_lock(job_queue->lock);
++	g_mutex_lock(&job_queue->lock);
+ 	gdk_threads_enter();
+ 
+ 	slot->container = gtk_vbox_new(FALSE, 0);
+@@ -170,7 +171,7 @@ rs_job_queue_add_slot(RSJobQueue *job_queue)
+ 	job_queue->n_slots++;
+ 
+ 	gdk_threads_leave();
+-	g_mutex_unlock(job_queue->lock);
++	g_mutex_unlock(&job_queue->lock);
+ 
+ 	return slot;
+ }
+@@ -186,7 +187,7 @@ rs_job_queue_remove_slot(RSJobQueue *job_queue, RSJobQueueSlot *slot)
+ 	g_return_if_fail(RS_IS_JOB_QUEUE(job_queue));
+ 	g_return_if_fail(slot != NULL);
+ 
+-	g_mutex_lock(job_queue->lock);
++	g_mutex_lock(&job_queue->lock);
+ 	gdk_threads_enter();
+ 
+ 	gtk_container_remove(GTK_CONTAINER(job_queue->box), slot->container);
+@@ -202,7 +203,7 @@ rs_job_queue_remove_slot(RSJobQueue *job_queue, RSJobQueueSlot *slot)
+ 	gtk_window_resize(GTK_WINDOW(job_queue->window), 1, 1);
+ 
+ 	gdk_threads_leave();
+-	g_mutex_unlock(job_queue->lock);
++	g_mutex_unlock(&job_queue->lock);
+ }
+ 
+ /**
+@@ -222,14 +223,14 @@ job_consumer(gpointer data, gpointer unused)
+ 	rs_job_queue_remove_slot(job->job_queue, slot);
+ 	g_object_unref(job->job_queue);
+ 
+-	if (job->done_cond)
++	if (job->waitable)
+ 	{
+ 		/* If we take this path, we shouldn't free the job, rs_job_queue_wait()
+ 		 * must take care of that */
+-		g_mutex_lock(job->done_mutex);
++		g_mutex_lock(&job->done_mutex);
+ 		job->done = TRUE;
+-		g_cond_signal(job->done_cond);
+-		g_mutex_unlock(job->done_mutex);
++		g_cond_signal(&job->done_cond);
++		g_mutex_unlock(&job->done_mutex);
+ 	}
+ 	else
+ 		g_free(job);
+@@ -251,27 +252,23 @@ rs_job_queue_add_job(RSJobFunc func, gpointer data, gboolean waitable)
+ 
+ 	g_return_val_if_fail(func != NULL, NULL);
+ 
+-	g_mutex_lock(job_queue->lock);
++	g_mutex_lock(&job_queue->lock);
+ 
+ 	RSJob *job = g_new0(RSJob, 1);
+     job->func = func;
+ 	job->job_queue = g_object_ref(job_queue);
+     job->data = data;
+     job->done = FALSE;
++    job->waitable = waitable;
+ 
+-	if (waitable)
++	if (job->waitable)
+     {
+-        job->done_cond = g_cond_new();
+-        job->done_mutex = g_mutex_new();
+-    }
+-    else
+-    {
+-        job->done_cond = NULL;
+-        job->done_mutex = NULL;
++        g_cond_init(&job->done_cond);
++		g_mutex_init(&job->done_mutex);
+     }
+ 
+     g_thread_pool_push(job_queue->pool, job, NULL);
+-	g_mutex_unlock(job_queue->lock);
++	g_mutex_unlock(&job_queue->lock);
+ 
+ 	return job;
+ }
+@@ -287,18 +284,15 @@ rs_job_queue_wait(RSJob *job)
+ 	gpointer result = NULL;
+ 
+ 	g_return_val_if_fail(job != NULL, NULL);
+-	g_return_val_if_fail(job->done_cond != NULL, NULL);
+-	g_return_val_if_fail(job->done_mutex != NULL, NULL);
++	g_return_val_if_fail(job->waitable == TRUE, NULL);
+ 
+ 	/* Wait for it */
+-	g_mutex_lock(job->done_mutex);
++	g_mutex_lock(&job->done_mutex);
+ 	while(!job->done)
+-		g_cond_wait(job->done_cond, job->done_mutex);
+-	g_mutex_unlock(job->done_mutex);
++		g_cond_wait(&job->done_cond, &job->done_mutex);
++	g_mutex_unlock(&job->done_mutex);
+ 
+ 	/* Free everything */
+-	g_cond_free(job->done_cond);
+-	g_mutex_free(job->done_mutex);
+ 	g_free(job);
+ 
+ 	result = job->result;
+diff --git a/librawstudio/rs-lens-db.c b/librawstudio/rs-lens-db.c
+index 76094e7..fb7966d 100644
+--- a/librawstudio/rs-lens-db.c
++++ b/librawstudio/rs-lens-db.c
+@@ -113,13 +113,13 @@ save_db(RSLensDb *lens_db)
+ {
+ 	xmlTextWriterPtr writer;
+ 	GList *list;
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++	static GMutex lock;
+ 
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	writer = xmlNewTextWriterFilename(lens_db->path, 0);
+ 	if (!writer)
+ 	{
+-		g_static_mutex_unlock(&lock);
++		g_mutex_unlock(&lock);
+ 		return;
+ 	}
+ 
+@@ -193,7 +193,7 @@ save_db(RSLensDb *lens_db)
+ 
+ 	xmlTextWriterEndDocument(writer);
+ 	xmlFreeTextWriter(writer);
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 
+ 	return;
+ }
+@@ -304,10 +304,10 @@ rs_lens_db_new(const char *path)
+ RSLensDb *
+ rs_lens_db_get_default(void)
+ {
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++	static GMutex lock;
+ 	static RSLensDb *lens_db = NULL;
+ 
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	if (!lens_db)
+ 	{
+ 		gchar *path = g_build_filename(rs_confdir_get(), "lens-database.xml", NULL);
+@@ -315,7 +315,7 @@ rs_lens_db_get_default(void)
+ 		save_db(lens_db);
+ 		g_free(path);
+ 	}
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 
+ 	return lens_db;
+ }
+diff --git a/librawstudio/rs-library.c b/librawstudio/rs-library.c
+index f8433a1..60c631f 100644
+--- a/librawstudio/rs-library.c
++++ b/librawstudio/rs-library.c
+@@ -77,7 +77,7 @@ struct _RSLibrary {
+ 
+ 	/* This mutex must be used when inserting data in a table with an
+ 	   autocrementing column - which is ALWAYS for sqlite */
+-	GMutex *id_lock;
++	GMutex id_lock;
+ };
+ 
+ G_DEFINE_TYPE(RSLibrary, rs_library, G_TYPE_OBJECT)
+@@ -110,8 +110,6 @@ rs_library_dispose(GObject *object)
+ 		library->dispose_has_run = TRUE;
+ 
+ 		sqlite3_close(library->db);
+-
+-		g_mutex_free(library->id_lock);
+ 	}
+ 
+ 	G_OBJECT_CLASS(rs_library_parent_class)->dispose (object);
+@@ -291,20 +289,20 @@ rs_library_init(RSLibrary *library)
+ 
+ 	  library_check_version(library->db);
+ 
+-	  library->id_lock = g_mutex_new();
++	  g_mutex_init(&library->id_lock);
+ 	}
+ }
+ 
+ RSLibrary *
+ rs_library_get_singleton(void)
+ {
+-	static GStaticMutex singleton_lock = G_STATIC_MUTEX_INIT;
++	static GMutex singleton_lock;
+ 	static RSLibrary *singleton = NULL;
+ 
+-	g_static_mutex_lock(&singleton_lock);
++	g_mutex_lock(&singleton_lock);
+ 	if (!singleton)
+ 		singleton = g_object_new(RS_TYPE_LIBRARY, NULL);
+-	g_static_mutex_unlock(&singleton_lock);
++	g_mutex_unlock(&singleton_lock);
+ 
+ 	return singleton;
+ }
+@@ -431,13 +429,13 @@ library_photo_add_tag(RSLibrary *library, const gint photo_id, const gint tag_id
+ 	if (autotag)
+ 		autotag_tag = 1;
+ 
+-	g_mutex_lock(library->id_lock);
++	g_mutex_lock(&library->id_lock);
+ 	rc = sqlite3_prepare_v2(db, "INSERT INTO phototags (photo, tag, autotag) VALUES (?1, ?2, ?3);", -1, &stmt, NULL);
+ 	rc = sqlite3_bind_int (stmt, 1, photo_id);
+ 	rc = sqlite3_bind_int (stmt, 2, tag_id);
+ 	rc = sqlite3_bind_int (stmt, 3, autotag_tag);
+ 	rc = sqlite3_step(stmt);
+-	g_mutex_unlock(library->id_lock);
++	g_mutex_unlock(&library->id_lock);
+ 	if (rc != SQLITE_DONE)
+ 		library_sqlite_error(db, rc);
+ 	sqlite3_finalize(stmt);
+@@ -484,12 +482,12 @@ library_add_photo(RSLibrary *library, const gchar *filename)
+ 	gint rc;
+ 	sqlite3_stmt *stmt;
+ 
+-	g_mutex_lock(library->id_lock);
++	g_mutex_lock(&library->id_lock);
+ 	sqlite3_prepare_v2(db, "INSERT INTO library (filename) VALUES (?1);", -1, &stmt, NULL);
+ 	rc = sqlite3_bind_text(stmt, 1, filename, -1, SQLITE_TRANSIENT);
+ 	rc = sqlite3_step(stmt);
+ 	id = sqlite3_last_insert_rowid(db);
+-	g_mutex_unlock(library->id_lock);
++	g_mutex_unlock(&library->id_lock);
+ 	if (rc != SQLITE_DONE)
+ 		library_sqlite_error(db, rc);
+ 	sqlite3_finalize(stmt);
+@@ -507,12 +505,12 @@ library_add_tag(RSLibrary *library, const gchar *tagname)
+ 	gint rc;
+ 	sqlite3_stmt *stmt;
+ 
+-	g_mutex_lock(library->id_lock);
++	g_mutex_lock(&library->id_lock);
+ 	sqlite3_prepare_v2(db, "INSERT INTO tags (tagname) VALUES (?1);", -1, &stmt, NULL);
+ 	rc = sqlite3_bind_text(stmt, 1, tagname, -1, SQLITE_TRANSIENT);
+ 	rc = sqlite3_step(stmt);
+ 	id = sqlite3_last_insert_rowid(db);
+-	g_mutex_unlock(library->id_lock);
++	g_mutex_unlock(&library->id_lock);
+ 	if (rc != SQLITE_DONE)
+ 		library_sqlite_error(db, rc);
+ 	sqlite3_finalize(stmt);
+@@ -759,12 +757,12 @@ rs_library_search(RSLibrary *library, const gchar *needle)
+ 	{
+ 		tag = needle_parts[n];
+ 
+-		g_mutex_lock(library->id_lock);
++		g_mutex_lock(&library->id_lock);
+ 		sqlite3_prepare_v2(db, "insert into filter select phototags.photo from phototags, tags where phototags.tag = tags.id and lower(tags.tagname) = lower(?1) ;", -1, &stmt, NULL);
+ 		rc = sqlite3_bind_text(stmt, 1, tag, -1, SQLITE_TRANSIENT);
+ 		rc = sqlite3_step(stmt);
+ 		sqlite3_finalize(stmt);
+-		g_mutex_unlock(library->id_lock);
++		g_mutex_unlock(&library->id_lock);
+ 	}
+ 
+ 	g_strfreev(needle_parts);
+@@ -778,11 +776,11 @@ rs_library_search(RSLibrary *library, const gchar *needle)
+ 	library_sqlite_error(db, rc);
+ 
+ 	/* Populate result table */
+-	g_mutex_lock(library->id_lock);
++	g_mutex_lock(&library->id_lock);
+ 	sqlite3_prepare_v2(db, "insert into result select photo, count(photo) from filter group by photo;", -1, &stmt, NULL);
+ 	rc = sqlite3_step(stmt);
+ 	sqlite3_finalize(stmt);
+-	g_mutex_unlock(library->id_lock);
++	g_mutex_unlock(&library->id_lock);
+ 	library_sqlite_error(db, rc);
+ 
+ 	/* Get filename */
+@@ -1028,7 +1026,7 @@ rs_library_add_photo_with_metadata(RSLibrary *library, const gchar *photo, RSMet
+ 	library_photo_default_tags(library, photo_id, metadata);
+ }
+ 
+-static GStaticMutex backup_lock = G_STATIC_MUTEX_INIT;
++static GMutex backup_lock;
+ 
+ void 
+ rs_library_backup_tags(RSLibrary *library, const gchar *photo_filename)
+@@ -1049,7 +1047,7 @@ rs_library_backup_tags(RSLibrary *library, const gchar *photo_filename)
+ 	gchar *directory = g_path_get_dirname(photo_filename);
+ 	gchar *dotdir = rs_dotdir_get(photo_filename);
+ 
+-	g_static_mutex_lock (&backup_lock);
++	g_mutex_lock (&backup_lock);
+ 
+ 	if (!dotdir)
+ 		return;
+@@ -1071,7 +1069,7 @@ rs_library_backup_tags(RSLibrary *library, const gchar *photo_filename)
+ 		g_free(directory);
+ 		g_free(dotdir);
+ 		g_free(xmlfile);
+-		g_static_mutex_unlock (&backup_lock);	
++		g_mutex_unlock (&backup_lock);	
+ 		return;
+ 	}
+ 
+@@ -1114,7 +1112,7 @@ rs_library_backup_tags(RSLibrary *library, const gchar *photo_filename)
+ 	g_free(directory);
+ 	g_free(dotdir);
+ 	g_free(xmlfile);
+-	g_static_mutex_unlock (&backup_lock);	
++	g_mutex_unlock (&backup_lock);	
+ 
+ 	RS_DEBUG(PERFORMANCE, "Backup done in %.0fms", g_timer_elapsed(gt, NULL)*1000.0);
+ 	g_timer_destroy(gt);
+diff --git a/librawstudio/rs-metadata.c b/librawstudio/rs-metadata.c
+index 29fb113..2d6a330 100644
+--- a/librawstudio/rs-metadata.c
++++ b/librawstudio/rs-metadata.c
+@@ -127,11 +127,11 @@ rs_metadata_cache_save(RSMetadata *metadata, const gchar *filename)
+ 	gchar *cache_filename;
+ 	gchar *thumb_filename;
+ 	xmlTextWriterPtr writer;
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++	static GMutex lock;
+ 
+ 	g_return_if_fail(RS_IS_METADATA(metadata));
+ 
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 
+ 	cache_filename = rs_metadata_dotdir_helper(filename, DOTDIR_METACACHE);
+ 
+@@ -189,7 +189,7 @@ rs_metadata_cache_save(RSMetadata *metadata, const gchar *filename)
+ 		xmlFreeTextWriter(writer);
+ 	}
+ 	g_free(cache_filename);
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 
+ 	if (metadata->thumbnail)
+ 	{
+diff --git a/librawstudio/rs-profile-factory.c b/librawstudio/rs-profile-factory.c
+index be060f0..9f321ee 100644
+--- a/librawstudio/rs-profile-factory.c
++++ b/librawstudio/rs-profile-factory.c
+@@ -163,9 +163,9 @@ RSProfileFactory *
+ rs_profile_factory_new_default(void)
+ {
+ 	static RSProfileFactory *factory = NULL;
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++	static GMutex lock;
+ 
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	if (!factory)
+ 	{
+ 		factory = rs_profile_factory_new(PROFILE_FACTORY_DEFAULT_SEARCH_PATH);
+@@ -173,7 +173,7 @@ rs_profile_factory_new_default(void)
+ 		const gchar *user_profiles = rs_profile_factory_get_user_profile_directory();
+ 		rs_profile_factory_load_profiles(factory, user_profiles, TRUE, TRUE);
+ 	}
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 
+ 	return factory;
+ }
+@@ -181,13 +181,13 @@ rs_profile_factory_new_default(void)
+ const gchar *
+ rs_profile_factory_get_user_profile_directory(void)
+ {
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++	static GMutex lock;
+ 	gchar *directory = NULL;
+ 
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	if (!directory)
+ 		directory = g_strdup_printf("%s/profiles/", rs_confdir_get());
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 
+ 	return directory;
+ }
+diff --git a/librawstudio/rs-utils.c b/librawstudio/rs-utils.c
+index fb204ec..6a565d0 100644
+--- a/librawstudio/rs-utils.c
++++ b/librawstudio/rs-utils.c
+@@ -157,7 +157,7 @@ rs_constrain_to_bounding_box(gint target_width, gint target_height, gint *width,
+ gint
+ rs_get_number_of_processor_cores(void)
+ {
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++	static GMutex lock;
+ 
+ 	/* We assume processors will not be added/removed during our lifetime */
+ 	static gint num = 0;
+@@ -165,7 +165,7 @@ rs_get_number_of_processor_cores(void)
+ 	if (num)
+ 		return num;
+ 
+-	g_static_mutex_lock (&lock);
++	g_mutex_lock (&lock);
+ 	if (num == 0)
+ 	{
+ 		/* Use a temporary for thread safety */
+@@ -203,7 +203,7 @@ rs_get_number_of_processor_cores(void)
+ 		RS_DEBUG(PERFORMANCE, "Detected %d CPU cores.", temp_num);
+ 		num = temp_num;
+ 	}
+-	g_static_mutex_unlock (&lock);
++	g_mutex_unlock (&lock);
+ 
+ 	return num;
+ }
+@@ -234,13 +234,13 @@ rs_detect_cpu_features(void)
+ 	guint eax;
+ 	guint edx;
+ 	guint ecx;
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++	static GMutex lock;
+ 	static guint stored_cpuflags = -1;
+ 
+ 	if (stored_cpuflags != -1)
+ 		return stored_cpuflags;
+ 
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	if (stored_cpuflags == -1)
+ 	{
+ 		guint cpuflags = 0;
+@@ -326,7 +326,7 @@ rs_detect_cpu_features(void)
+ 		}
+ 		stored_cpuflags = cpuflags;
+ 	}
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 
+ #define report(a, x) RS_DEBUG(PERFORMANCE, "CPU Feature: "a" = %d", !!(stored_cpuflags&x));
+ 	report("MMX",RS_CPU_FLAG_MMX);
+@@ -364,9 +364,9 @@ const gchar *
+ rs_confdir_get(void)
+ {
+ 	static gchar *dir = NULL;
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++	static GMutex lock;
+ 
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	if (!dir)
+ 	{
+ 		const gchar *home = g_get_home_dir();
+@@ -374,7 +374,7 @@ rs_confdir_get(void)
+ 	}
+ 
+ 	g_mkdir_with_parents(dir, 00755);
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 
+ 	return dir;
+ }
+diff --git a/plugins/cache/cache.c b/plugins/cache/cache.c
+index 7aa1edd..575153e 100644
+--- a/plugins/cache/cache.c
++++ b/plugins/cache/cache.c
+@@ -43,7 +43,7 @@ struct _RSCache {
+ 	RSFilterChangedMask mask;
+ 	gboolean ignore_roi;
+ 	gint latency;
+-	GMutex *cache_mutex;
++	GMutex cache_mutex;
+ };
+ 
+ struct _RSCacheClass {
+@@ -108,7 +108,7 @@ rs_cache_init(RSCache *cache)
+ 	cache->ignore_roi = FALSE;
+ 	cache->latency = 0;
+ 	cache->cached_image = rs_filter_response_new();
+-	cache->cache_mutex = g_mutex_new();
++	g_mutex_init(&cache->cache_mutex);
+ }
+ 
+ static void
+@@ -116,7 +116,7 @@ finalize(GObject *object)
+ {
+ 	RSCache *cache = RS_CACHE(object);
+ 	flush(cache);
+-	g_mutex_free(cache->cache_mutex);
++	g_mutex_clear(&cache->cache_mutex);
+ }
+ 
+ static void
+@@ -232,7 +232,7 @@ get_image(RSFilter *filter, const RSFilterRequest *_request)
+ 
+ 	filter_debug("Cache[%p]: getimage() called", filter);
+ 
+-	g_mutex_lock(cache->cache_mutex);
++	g_mutex_lock(&cache->cache_mutex);
+ 	if (roi && cache->ignore_roi)
+ 	{
+ 		roi = NULL;
+@@ -315,7 +315,7 @@ get_image(RSFilter *filter, const RSFilterRequest *_request)
+ 		g_object_unref(img);
+ 
+ 	g_object_unref(request);
+-	g_mutex_unlock(cache->cache_mutex);
++	g_mutex_unlock(&cache->cache_mutex);
+ 
+ 	return fr;
+ }
+@@ -329,7 +329,7 @@ get_image8(RSFilter *filter, const RSFilterRequest *_request)
+ 	GdkRectangle *roi = rs_filter_request_get_roi(request);
+ 	filter_debug("Cache[%p]: getimage8() called", filter);
+ 
+-	g_mutex_lock(cache->cache_mutex);
++	g_mutex_lock(&cache->cache_mutex);
+ 	if (roi && cache->ignore_roi)
+ 	{
+ 		roi = NULL;
+@@ -397,7 +397,7 @@ get_image8(RSFilter *filter, const RSFilterRequest *_request)
+ 		g_object_unref(img);
+ 
+ 	g_object_unref(request);
+-	g_mutex_unlock(cache->cache_mutex);
++	g_mutex_unlock(&cache->cache_mutex);
+ 
+ 	return fr;
+ }
+@@ -417,9 +417,9 @@ previous_changed(RSFilter *filter, RSFilter *parent, RSFilterChangedMask mask)
+ 	RSCache *cache = RS_CACHE(filter);
+ 
+ 	filter_debug("Cache[%p]: Previous Changed (%x)", filter, mask);
+-	g_mutex_lock(cache->cache_mutex);
++	g_mutex_lock(&cache->cache_mutex);
+ 	if (mask & RS_FILTER_CHANGED_PIXELDATA)
+ 		flush(cache);
+-	g_mutex_unlock(cache->cache_mutex);
++	g_mutex_unlock(&cache->cache_mutex);
+ 	rs_filter_changed(filter, mask);
+ }
+diff --git a/plugins/colorspace-adobergb/colorspace-adobergb.c b/plugins/colorspace-adobergb/colorspace-adobergb.c
+index 9485cb6..4fb556c 100644
+--- a/plugins/colorspace-adobergb/colorspace-adobergb.c
++++ b/plugins/colorspace-adobergb/colorspace-adobergb.c
+@@ -139,13 +139,13 @@ rs_adobe_gamma_new(void)
+ static const RS1dFunction *
+ get_gamma_function(const RSColorSpace *color_space)
+ {
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++	static GMutex lock;
+ 	static RS1dFunction *func = NULL;
+ 
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	if (!func)
+ 		func = rs_adobe_gamma_new();
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 
+ 	return func;
+ }
+diff --git a/plugins/colorspace-prophoto/colorspace-prophoto.c b/plugins/colorspace-prophoto/colorspace-prophoto.c
+index 0c5f285..bc385ac 100644
+--- a/plugins/colorspace-prophoto/colorspace-prophoto.c
++++ b/plugins/colorspace-prophoto/colorspace-prophoto.c
+@@ -139,13 +139,13 @@ rs_prophoto_gamma_new(void)
+ static const RS1dFunction *
+ get_gamma_function(const RSColorSpace *color_space)
+ {
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++	static GMutex lock;
+ 	static RS1dFunction *func = NULL;
+ 
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	if (!func)
+ 		func = rs_prophoto_gamma_new();
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 
+ 	return func;
+ }
+diff --git a/plugins/colorspace-srgb/colorspace-srgb.c b/plugins/colorspace-srgb/colorspace-srgb.c
+index a292bd3..15d12f2 100644
+--- a/plugins/colorspace-srgb/colorspace-srgb.c
++++ b/plugins/colorspace-srgb/colorspace-srgb.c
+@@ -139,13 +139,13 @@ rs_srgb_gamma_new(void)
+ static const RS1dFunction *
+ get_gamma_function(const RSColorSpace *color_space)
+ {
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++	static GMutex lock;
+ 	static RS1dFunction *func = NULL;
+ 
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	if (!func)
+ 		func = rs_srgb_gamma_new();
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 
+ 	return func;
+ }
+diff --git a/plugins/colorspace-transform/colorspace_transform.c b/plugins/colorspace-transform/colorspace_transform.c
+index d75450b..2479977 100644
+--- a/plugins/colorspace-transform/colorspace_transform.c
++++ b/plugins/colorspace-transform/colorspace_transform.c
+@@ -526,7 +526,7 @@ convert_colorspace8(RSColorspaceTransform *colorspace_transform, RS_IMAGE16 *inp
+ 			if (threads == 1)
+ 				start_single_cs8_transform_thread(&t[0]);
+ 			else
+-				t[i].threadid = g_thread_create(start_single_cs8_transform_thread, &t[i], TRUE, NULL);
++				t[i].threadid = g_thread_new("RSColorspaceTransform worker", start_single_cs8_transform_thread, &t[i]);
+ 		}
+ 
+ 		/* Wait for threads to finish */
+diff --git a/plugins/colorspace-transform/rs-cmm.c b/plugins/colorspace-transform/rs-cmm.c
+index 60b3f94..a39cbb7 100644
+--- a/plugins/colorspace-transform/rs-cmm.c
++++ b/plugins/colorspace-transform/rs-cmm.c
+@@ -61,7 +61,7 @@ static void load_profile(RSCmm *cmm, const RSIccProfile *profile, const RSIccPro
+ static void prepare8(RSCmm *cmm);
+ static void prepare16(RSCmm *cmm);
+ 
+-static GMutex *is_profile_gamma_22_corrected_linear_lock = NULL;
++static GMutex *is_profile_gamma_22_corrected_linear_lock;
+ 
+ typedef struct {
+ 	RSCmm *cmm;
+@@ -98,10 +98,6 @@ rs_cmm_class_init(RSCmmClass *klass)
+ 		nd = pow(nd, 1.0/2.2);
+ 		gammatable22[n] = CLAMP((gint) (nd*65535.0), 0, 65535);
+ 	}
+-
+-	/* GObject locking will protect us here */
+-	if (!is_profile_gamma_22_corrected_linear_lock)
+-		is_profile_gamma_22_corrected_linear_lock = g_mutex_new();
+ }
+ 
+ static void
+@@ -318,7 +314,7 @@ rs_cmm_transform(RSCmm *cmm, RS_IMAGE16 *input, void *output, gboolean sixteen_t
+ 		y_offset = MIN(input->h, y_offset);
+ 		t[i].end_y = y_offset;
+ 
+-		t[i].threadid = g_thread_create(start_single_transform_thread, &t[i], TRUE, NULL);
++		t[i].threadid = g_thread_new("RSCmm worker", start_single_transform_thread, &t[i]);
+ 	}
+ 
+ 	/* Wait for threads to finish */
+diff --git a/plugins/dcp/dcp.c b/plugins/dcp/dcp.c
+index 42ccdd5..8b4fdfc 100644
+--- a/plugins/dcp/dcp.c
++++ b/plugins/dcp/dcp.c
+@@ -51,7 +51,7 @@ static void read_profile(RSDcp *dcp, RSDcpFile *dcp_file);
+ static void free_dcp_profile(RSDcp *dcp);
+ static void set_prophoto_wb(RSDcp *dcp, gfloat warmth, gfloat tint);
+ static void calculate_huesat_maps(RSDcp *dcp, gfloat temp);
+-static GStaticRecMutex dcp_mutex = G_STATIC_REC_MUTEX_INIT;
++static GRecMutex dcp_mutex;
+ 
+ G_MODULE_EXPORT void
+ rs_plugin_load(RSPlugin *plugin)
+@@ -437,10 +437,10 @@ set_property(GObject *object, guint property_id, const GValue *value, GParamSpec
+ 			g_object_weak_ref(G_OBJECT(dcp->settings), settings_weak_notify, dcp);
+ 			break;
+ 		case PROP_PROFILE:
+-			g_static_rec_mutex_lock(&dcp_mutex);
++			g_rec_mutex_lock(&dcp_mutex);
+ 			read_profile(dcp, g_value_get_object(value));
+ 			changed = TRUE;
+-			g_static_rec_mutex_unlock(&dcp_mutex);
++			g_rec_mutex_unlock(&dcp_mutex);
+ 			break;
+ 		case PROP_READ_OUT_CURVE:
+ 			temp = g_value_get_object(value);
+@@ -449,13 +449,13 @@ set_property(GObject *object, guint property_id, const GValue *value, GParamSpec
+ 			dcp->read_out_curve = temp;
+ 			break;
+ 		case PROP_USE_PROFILE:
+-			g_static_rec_mutex_lock(&dcp_mutex);
++			g_rec_mutex_lock(&dcp_mutex);
+ 			dcp->use_profile = g_value_get_boolean(value);
+ 			if (!dcp->use_profile)
+ 				free_dcp_profile(dcp);
+ 			else
+ 				precalc(dcp);
+-			g_static_rec_mutex_unlock(&dcp_mutex);
++			g_rec_mutex_unlock(&dcp_mutex);
+ 			break;
+ 		default:
+ 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+@@ -600,7 +600,7 @@ get_image(RSFilter *filter, const RSFilterRequest *request)
+ 	rs_filter_response_set_image(response, output);
+ 	g_object_unref(output);
+ 
+-	g_static_rec_mutex_lock(&dcp_mutex);
++	g_rec_mutex_lock(&dcp_mutex);
+ 	init_exposure(dcp);
+ 
+ 	guint i, y_offset, y_per_thread, threaded_h;
+@@ -629,7 +629,7 @@ get_image(RSFilter *filter, const RSFilterRequest *request)
+ 		if (threads == 1)
+ 			start_single_dcp_thread(&t[0]);
+ 		else	
+-			t[i].threadid = g_thread_create(start_single_dcp_thread, &t[i], TRUE, NULL);
++			t[i].threadid = g_thread_new("RSDcp worker", start_single_dcp_thread, &t[i]);
+ 	}
+ 
+ 	/* Wait for threads to finish */
+@@ -637,7 +637,7 @@ get_image(RSFilter *filter, const RSFilterRequest *request)
+ 		g_thread_join(t[i].threadid);
+ 
+ 	/* Settings can change now */
+-	g_static_rec_mutex_unlock(&dcp_mutex);
++	g_rec_mutex_unlock(&dcp_mutex);
+ 
+ 	/* If we must deliver histogram data, do it now */
+ 	if (dcp->read_out_curve)
+@@ -1458,14 +1458,14 @@ precalc(RSDcp *dcp)
+ 	}};
+ 
+ 	/* Camera to ProPhoto */
+-	g_static_rec_mutex_lock(&dcp_mutex);
++	g_rec_mutex_lock(&dcp_mutex);
+ 	if (dcp->use_profile)
+ 		matrix3_multiply(&xyz_to_prophoto, &dcp->camera_to_pcs, &dcp->camera_to_prophoto); /* verified by SDK */
+ 	if (dcp->huesatmap && (rs_detect_cpu_features() & RS_CPU_FLAG_SSE2))
+ 		calc_hsm_constants(dcp->huesatmap, dcp->huesatmap_precalc); 
+ 	if (dcp->looktable && (rs_detect_cpu_features() & RS_CPU_FLAG_SSE2))
+ 		calc_hsm_constants(dcp->looktable, dcp->looktable_precalc); 
+-	g_static_rec_mutex_unlock(&dcp_mutex);
++	g_rec_mutex_unlock(&dcp_mutex);
+ }
+ 
+ static void
+diff --git a/plugins/demosaic/demosaic.c b/plugins/demosaic/demosaic.c
+index 0afdcd4..9b5ffa6 100644
+--- a/plugins/demosaic/demosaic.c
++++ b/plugins/demosaic/demosaic.c
+@@ -535,7 +535,7 @@ ppg_interpolate_INDI(RS_IMAGE16 *image, RS_IMAGE16 *output, const unsigned int f
+ 		y_offset = MIN(image->h, y_offset);
+ 		t[i].end_y = y_offset;
+ 
+-		t[i].threadid = g_thread_create(start_interp_thread, &t[i], TRUE, NULL);
++		t[i].threadid = g_thread_new("RSDemosaic worker (ppg)", start_interp_thread, &t[i]);
+ 	}
+ 
+ 	/* Wait for threads to finish */
+@@ -700,9 +700,9 @@ none_interpolate_INDI(RS_IMAGE16 *in, RS_IMAGE16 *out, const unsigned int filter
+ 		t[i].end_y = y_offset;
+ 
+ 		if (half_size)
+-			t[i].threadid = g_thread_create(start_none_thread_half, &t[i], TRUE, NULL);
++			t[i].threadid = g_thread_new("RSDemosaic worker (none) (half-size)", start_none_thread_half, &t[i]);
+ 		else
+-			t[i].threadid = g_thread_create(start_none_thread, &t[i], TRUE, NULL);
++			t[i].threadid = g_thread_new("RSDemosaic worker (none)", start_none_thread, &t[i]);
+ 	}
+ 
+ 	/* Wait for threads to finish */
+diff --git a/plugins/lensfun/lensfun.c b/plugins/lensfun/lensfun.c
+index ec3d0f8..af1f189 100644
+--- a/plugins/lensfun/lensfun.c
++++ b/plugins/lensfun/lensfun.c
+@@ -686,7 +686,7 @@ get_image(RSFilter *filter, const RSFilterRequest *request)
+ 					y_offset += y_per_thread;
+ 					y_offset = MIN(vign_roi->y + vign_roi->height, y_offset);
+ 					t[i].end_y = y_offset;
+-					t[i].threadid = g_thread_create(thread_func, &t[i], TRUE, NULL);
++					t[i].threadid = g_thread_new("RSLensfun worker (phase 2)", thread_func, &t[i]);
+ 				}
+ 				
+ 				/* Wait for threads to finish */
+@@ -715,7 +715,7 @@ get_image(RSFilter *filter, const RSFilterRequest *request)
+ 					y_offset = MIN(roi->y + roi->height, y_offset);
+ 					t[i].end_y = y_offset;
+ 					t[i].stage = 3;
+-					t[i].threadid = g_thread_create(thread_func, &t[i], TRUE, NULL);
++					t[i].threadid = g_thread_new("RSLensfun worker (phase 1+3)", thread_func, &t[i]);
+ 				}
+ 				
+ 				/* Wait for threads to finish */
+diff --git a/plugins/resample/resample.c b/plugins/resample/resample.c
+index 894939d..bb9c8e1 100644
+--- a/plugins/resample/resample.c
++++ b/plugins/resample/resample.c
+@@ -92,7 +92,7 @@ void ResizeV_fast(ResampleInfo *info);
+ 
+ static RSFilterClass *rs_resample_parent_class = NULL;
+ static inline guint clampbits(gint x, guint n) { guint32 _y_temp; if( (_y_temp=x>>n) ) x = ~_y_temp >> (32-n); return x;}
+-static GStaticRecMutex resampler_mutex = G_STATIC_REC_MUTEX_INIT;
++static GRecMutex resampler_mutex;
+ 
+ G_MODULE_EXPORT void
+ rs_plugin_load(RSPlugin *plugin)
+@@ -188,7 +188,7 @@ set_property(GObject *object, guint property_id, const GValue *value, GParamSpec
+ 	RSResample *resample = RS_RESAMPLE(object);
+ 	RSFilterChangedMask mask = 0;
+ 
+-	g_static_rec_mutex_lock(&resampler_mutex);
++	g_rec_mutex_lock(&resampler_mutex);
+ 
+ 	switch (property_id)
+ 	{
+@@ -224,7 +224,7 @@ set_property(GObject *object, guint property_id, const GValue *value, GParamSpec
+ 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+ 	}
+ 
+-	g_static_rec_mutex_unlock(&resampler_mutex);
++	g_rec_mutex_unlock(&resampler_mutex);
+ 	if (mask)
+ 		rs_filter_changed(RS_FILTER(object), mask);
+ }
+@@ -245,7 +245,7 @@ recalculate_dimensions(RSResample *resample)
+ 	gint new_width, new_height;
+ 	gint previous_width = 0;
+ 	gint previous_height = 0;
+-	g_static_rec_mutex_lock(&resampler_mutex);
++	g_rec_mutex_lock(&resampler_mutex);
+ 
+ 	if (RS_FILTER(resample)->previous)
+ 		rs_filter_get_size_simple(RS_FILTER(resample)->previous, RS_FILTER_REQUEST_QUICK, &previous_width, &previous_height);
+@@ -284,7 +284,7 @@ recalculate_dimensions(RSResample *resample)
+ 	if (new_width < 0 || new_height < 0)
+ 		resample->scale = 1.0f;
+ 
+-	g_static_rec_mutex_unlock(&resampler_mutex);
++	g_rec_mutex_unlock(&resampler_mutex);
+ 	return mask;
+ }
+ 
+@@ -401,7 +401,7 @@ get_image(RSFilter *filter, const RSFilterRequest *request)
+ 	if (!RS_IS_IMAGE16(input))
+ 		return previous_response;
+ 
+-	g_static_rec_mutex_lock(&resampler_mutex);
++	g_rec_mutex_lock(&resampler_mutex);
+ 	input_width = input->w;
+ 	input_height = input->h;	
+ 
+@@ -450,7 +450,7 @@ get_image(RSFilter *filter, const RSFilterRequest *request)
+ 		v->use_fast = use_fast;
+ 
+ 		/* Start it up */
+-		v->threadid = g_thread_create(start_thread_resampler, v, TRUE, NULL);
++		v->threadid = g_thread_new("RSResample worker (vertical)", start_thread_resampler, v);
+ 
+ 		/* Update offset */
+ 		output_x_offset = v->dest_end_other;
+@@ -484,7 +484,7 @@ get_image(RSFilter *filter, const RSFilterRequest *request)
+ 		h->use_fast = use_fast;
+ 
+ 		/* Start it up */
+-		h->threadid = g_thread_create(start_thread_resampler, h, TRUE, NULL);
++		h->threadid = g_thread_new("RSResample worker (horizontal)", start_thread_resampler, h);
+ 
+ 		/* Update offset */
+ 		input_y_offset = h->dest_end_other;
+@@ -503,7 +503,7 @@ get_image(RSFilter *filter, const RSFilterRequest *request)
+ 	rs_filter_response_set_image(response, output);
+ 	rs_filter_param_set_boolean(RS_FILTER_PARAM(response), "half-size", FALSE);
+ 	g_object_unref(output);
+-	g_static_rec_mutex_unlock(&resampler_mutex);
++	g_rec_mutex_unlock(&resampler_mutex);
+ 	return response;
+ }
+ 
+diff --git a/plugins/rotate/rotate.c b/plugins/rotate/rotate.c
+index ea3c3d9..075d8f7 100644
+--- a/plugins/rotate/rotate.c
++++ b/plugins/rotate/rotate.c
+@@ -293,7 +293,7 @@ get_image(RSFilter *filter, const RSFilterRequest *request)
+ 		t[i].rotate = rotate;
+ 		t[i].use_fast = use_fast;
+ 
+-		t[i].threadid = g_thread_create(start_rotate_thread, &t[i], TRUE, NULL);
++		t[i].threadid = g_thread_new("RSRotate worker", start_rotate_thread, &t[i]);
+ 	}
+ 
+ 	/* Wait for threads to finish */
+diff --git a/src/application.c b/src/application.c
+index abb06c2..f5356a1 100644
+--- a/src/application.c
++++ b/src/application.c
+@@ -481,18 +481,18 @@ static void runuri(GtkLinkButton *button, const gchar *link, gpointer user_data)
+ 
+ /* We use out own reentrant locking for GDK/GTK */
+ 
+-static GStaticRecMutex gdk_lock = G_STATIC_REC_MUTEX_INIT;
++static GRecMutex gdk_lock;
+ 
+ static void
+ rs_gdk_lock(void)
+ {
+-	g_static_rec_mutex_lock (&gdk_lock);
++	g_rec_mutex_lock (&gdk_lock);
+ }
+ 
+ static void
+ rs_gdk_unlock(void)
+ {
+-	g_static_rec_mutex_unlock (&gdk_lock);
++	g_rec_mutex_unlock (&gdk_lock);
+ }
+ 
+ #if defined(RS_USE_INTERNAL_STACKTRACE)
+@@ -666,10 +666,6 @@ main(int argc, char **argv)
+ 			rs_conf_set_boolean("client-mode", FALSE);
+ 
+ 	gdk_threads_set_lock_functions(rs_gdk_lock, rs_gdk_unlock);
+-#if GLIB_MAJOR_VERSION <= 2 && GLIB_MINOR_VERSION < 31
+-	g_thread_init(NULL);
+-	gdk_threads_init();
+-#endif
+ 	dbus_threads_init_default();
+ 
+ #ifdef ENABLE_NLS
+@@ -678,8 +674,10 @@ main(int argc, char **argv)
+ 	textdomain(GETTEXT_PACKAGE);
+ #endif
+ 
++#if ! GLIB_CHECK_VERSION(2,36,0)
+ 	/* Make sure the GType system is initialized */
+ 	g_type_init();
++#endif
+ 
+ 	/* Switch to rawstudio theme before any drawing if needed */
+ 	rs_conf_get_boolean_with_default(CONF_USE_SYSTEM_THEME, &use_system_theme, DEFAULT_CONF_USE_SYSTEM_THEME);
+diff --git a/src/eog-pixbuf-cell-renderer.c b/src/eog-pixbuf-cell-renderer.c
+index f3c2145..8be2128 100644
+--- a/src/eog-pixbuf-cell-renderer.c
++++ b/src/eog-pixbuf-cell-renderer.c
+@@ -44,7 +44,7 @@ static void eog_pixbuf_cell_renderer_render (GtkCellRenderer *cell,
+                                              GtkCellRendererState flags);
+ 
+ #define PLACEMENT_TTL 120 /* Seconds to remember */
+-static GStaticMutex placement_lock = G_STATIC_MUTEX_INIT;
++static GMutex placement_lock;
+ static GTree *placement = NULL;
+ static GTimer *placement_age = NULL;
+ 
+@@ -76,14 +76,14 @@ eog_pixbuf_cell_renderer_get_bang_position(GtkIconView *iconview, GdkPixbuf *pix
+ 	BangPosition *bp_;
+ 	gboolean result = FALSE;
+ 
+-	g_static_mutex_lock (&placement_lock);
++	g_mutex_lock (&placement_lock);
+ 	bp_ = g_tree_lookup(placement, GINT_TO_POINTER(GPOINTER_TO_INT(pixbuf)^GPOINTER_TO_INT(iconview)));
+ 	if (bp_ && GDK_IS_DRAWABLE(bp_->drawable))
+ 	{
+ 		*bp = *bp_;
+ 		result = TRUE;
+ 	}
+-	g_static_mutex_unlock (&placement_lock);
++	g_mutex_unlock (&placement_lock);
+ 
+ 	return result;
+ }
+@@ -200,7 +200,7 @@ eog_pixbuf_cell_renderer_render (GtkCellRenderer *cell,
+ 	pix_rect.width  -= cell->xpad * 2;
+ 	pix_rect.height -= cell->ypad * 2;
+ 
+-	g_static_mutex_lock (&placement_lock);
++	g_mutex_lock (&placement_lock);
+ 	if (placement == NULL)
+ 		placement = g_tree_new_full(placement_cmp, NULL, NULL, placement_free);
+ 	if (placement_age == NULL)
+@@ -229,7 +229,7 @@ eog_pixbuf_cell_renderer_render (GtkCellRenderer *cell,
+ 		bp->y = pix_rect.y;
+ 		g_tree_insert(placement, key, bp);
+ 	}
+-	g_static_mutex_unlock (&placement_lock);
++	g_mutex_unlock (&placement_lock);
+ 
+ 	if ((flags & (GTK_CELL_RENDERER_SELECTED|GTK_CELL_RENDERER_PRELIT)) != 0) {
+ 		gint radius = 5;
+diff --git a/src/gtk-helper.c b/src/gtk-helper.c
+index 1c5cfad..199d672 100644
+--- a/src/gtk-helper.c
++++ b/src/gtk-helper.c
+@@ -507,10 +507,10 @@ gui_select_theme(RS_THEME theme)
+ {
+ 	static RS_THEME current_theme = STANDARD_GTK_THEME;
+ 	static gchar **default_rc_files = NULL;
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++	static GMutex lock;
+ 	GtkSettings *settings;
+ 
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 
+ 	/* Copy default RC files */
+ 	if (!default_rc_files)
+@@ -543,7 +543,7 @@ gui_select_theme(RS_THEME theme)
+ 			gtk_rc_reparse_all_for_settings(settings, TRUE);
+ 	}
+ 
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ }
+ 
+ /**
+diff --git a/src/gtk-interface.c b/src/gtk-interface.c
+index 422ea16..037780c 100644
+--- a/src/gtk-interface.c
++++ b/src/gtk-interface.c
+@@ -1113,10 +1113,10 @@ gui_dialog_simple(gchar *title, gchar *message)
+ GtkUIManager *
+ gui_get_uimanager()
+ {
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++	static GMutex lock;
+ 	static GtkUIManager *ui_manager = NULL;
+ 
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	if (!ui_manager)
+ 	{
+ 		GError *error = NULL;
+@@ -1133,7 +1133,7 @@ gui_get_uimanager()
+ 			g_error_free (error);
+ 		}
+ 	}
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 	return ui_manager;
+ }
+ 
+diff --git a/src/rs-actions.c b/src/rs-actions.c
+index c123cdf..baa7952 100644
+--- a/src/rs-actions.c
++++ b/src/rs-actions.c
+@@ -46,7 +46,7 @@
+ #include "rs-geo-db.h"
+ 
+ static GtkActionGroup *core_action_group = NULL;
+-static GStaticMutex rs_actions_spinlock = G_STATIC_MUTEX_INIT;
++static GMutex rs_actions_spinlock;
+ 
+ #define ACTION(Action) void rs_action_##Action(GtkAction *action, RS_BLOB *rs); \
+ 	void rs_action_##Action(GtkAction *action, RS_BLOB *rs)
+@@ -1418,7 +1418,7 @@ ACTION(ProcessBatch)
+ 		rs_cache_save(rs->photo, MASK_ALL);
+ 
+ 	if (NULL == process_thread)
+-			process_thread = g_thread_create(start_process_batch, rs->queue, FALSE, NULL);
++			process_thread = g_thread_new("batch process", start_process_batch, rs->queue);
+ }
+ 
+ ACTION(lens_db_editor)
+@@ -2011,7 +2011,7 @@ rs_get_core_action_group(RS_BLOB *rs)
+ 	};
+ 	static guint n_right_popup = G_N_ELEMENTS (right_popup);
+ 
+-	g_static_mutex_lock(&rs_actions_spinlock);
++	g_mutex_lock(&rs_actions_spinlock);
+ 	if (core_action_group == NULL)
+ 	{
+ 		core_action_group = gtk_action_group_new ("CoreActions");
+@@ -2021,7 +2021,7 @@ rs_get_core_action_group(RS_BLOB *rs)
+ 		gtk_action_group_add_radio_actions(core_action_group, sort_by_popup, n_sort_by_popup, rs_store_get_sort_method(rs->store), ACTION_CB(sort_by_popup), rs);
+ 		gtk_action_group_add_radio_actions(core_action_group, right_popup, n_right_popup, 1, ACTION_CB(right_popup), rs);
+ 	}
+-	g_static_mutex_unlock(&rs_actions_spinlock);
++	g_mutex_unlock(&rs_actions_spinlock);
+ 
+ 	return core_action_group;
+ }
+@@ -2067,13 +2067,13 @@ rs_core_action_group_set_visibility(const gchar *name, gboolean visible)
+ void
+ rs_core_action_group_add_actions(const GtkActionEntry *entries, guint n_entries, gpointer user_data)
+ {
+-	g_static_mutex_lock(&rs_actions_spinlock);
++	g_mutex_lock(&rs_actions_spinlock);
+ 	
+ 	if (core_action_group)
+ 		gtk_action_group_add_actions(core_action_group, entries, n_entries, user_data);
+ 	else
+ 		g_warning("core_action_group is NULL");
+-	g_static_mutex_unlock(&rs_actions_spinlock);
++	g_mutex_unlock(&rs_actions_spinlock);
+ }
+ 
+ /**
+@@ -2082,13 +2082,13 @@ rs_core_action_group_add_actions(const GtkActionEntry *entries, guint n_entries,
+ void
+ rs_core_action_group_add_radio_actions(const GtkRadioActionEntry *entries, guint n_entries, gint value, GCallback on_change, gpointer user_data)
+ {
+-	g_static_mutex_lock(&rs_actions_spinlock);
++	g_mutex_lock(&rs_actions_spinlock);
+ 	
+ 	if (core_action_group)
+ 		gtk_action_group_add_radio_actions(core_action_group, entries, n_entries, value, on_change, user_data);
+ 	else
+ 		g_warning("core_action_group is NULL");
+-	g_static_mutex_unlock(&rs_actions_spinlock);
++	g_mutex_unlock(&rs_actions_spinlock);
+ }
+ 
+ /**
+@@ -2101,14 +2101,14 @@ rs_core_action_group_get_action(const gchar *name)
+ {
+ 	GtkAction *action = NULL;
+ 
+-	g_static_mutex_lock(&rs_actions_spinlock);
++	g_mutex_lock(&rs_actions_spinlock);
+ 
+ 	if (core_action_group)
+ 		action = gtk_action_group_get_action(core_action_group, name);
+ 	else
+ 		g_warning("core_action_group is NULL");
+ 
+-	g_static_mutex_unlock(&rs_actions_spinlock);
++	g_mutex_unlock(&rs_actions_spinlock);
+ 
+ 	return action;
+ }
+diff --git a/src/rs-camera-db.c b/src/rs-camera-db.c
+index 0a5969e..2bf3ce6 100644
+--- a/src/rs-camera-db.c
++++ b/src/rs-camera-db.c
+@@ -133,16 +133,16 @@ RSCameraDb *
+ rs_camera_db_get_singleton(void)
+ {
+ 	static RSCameraDb *camera_db = NULL;
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++	static GMutex lock;
+ 
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	if (!camera_db)
+ 	{
+ 		gchar *path = g_build_filename(rs_confdir_get(), "camera-database.xml", NULL);
+ 		camera_db = rs_camera_db_new(path);
+ 		g_free(path);
+ 	}
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 
+ 	return camera_db;
+ }
+diff --git a/src/rs-geo-db.c b/src/rs-geo-db.c
+index d67ff4f..55a1abe 100644
+--- a/src/rs-geo-db.c
++++ b/src/rs-geo-db.c
+@@ -104,14 +104,14 @@ RSGeoDb *
+ rs_geo_db_get_singleton(void)
+ {
+ 	static RSGeoDb *geodb = NULL;
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++	static GMutex lock;
+ 
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	if (!geodb)
+ 	{
+ 		geodb = rs_geo_db_new();
+ 	}
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 
+ 	return geodb;
+ }
+diff --git a/src/rs-preview-widget.c b/src/rs-preview-widget.c
+index 18ac41c..a40fb19 100644
+--- a/src/rs-preview-widget.c
++++ b/src/rs-preview-widget.c
+@@ -99,7 +99,7 @@ typedef enum {
+ typedef struct {
+ 	GThread *thread_id;
+ 	RSPreviewWidget *preview;
+-	GCond* render;
++	GCond render;
+ 	GMutex *render_mutex;
+ 	GdkRectangle dirty_area;
+ 	gboolean render_pending;
+@@ -314,14 +314,14 @@ rs_preview_widget_class_init(RSPreviewWidgetClass *klass)
+ static void
+ rs_preview_widget_init(RSPreviewWidget *preview)
+ {
+-	static GStaticMutex render_mutex = G_STATIC_MUTEX_INIT;
++	static GMutex render_mutex;
+ 	preview->render_thread = g_new(ThreadInfo, 1);
+ 	preview->render_thread->preview = preview;
+-	preview->render_thread->render = g_cond_new();
+-	preview->render_thread->render_mutex = g_static_mutex_get_mutex(&render_mutex);
++	g_cond_init(&preview->render_thread->render);
++	preview->render_thread->render_mutex = &render_mutex;
+ 	preview->render_thread->finish_rendering = FALSE;
+ 	g_mutex_lock(preview->render_thread->render_mutex);
+-	preview->render_thread->thread_id = g_thread_create(render_thread_func, preview->render_thread, TRUE, NULL);
++	preview->render_thread->thread_id = g_thread_new("preview render", render_thread_func, preview->render_thread);
+ 	gint i;
+ 	GtkTable *table = GTK_TABLE(preview);
+ 	preview->display = gtk_widget_get_display(GTK_WIDGET(preview));
+@@ -3022,7 +3022,7 @@ redraw(RSPreviewWidget *preview, GdkRectangle *dirty_area)
+ 		preview->render_thread->dirty_area.width = preview->render_thread->dirty_area.height = 0;
+ 		while (preview->render_thread->render_pending) 
+ 		{
+-			g_cond_signal(preview->render_thread->render);
++			g_cond_signal(&preview->render_thread->render);
+ 			g_mutex_unlock(preview->render_thread->render_mutex);
+ 			g_usleep(1000);
+ 			g_mutex_lock(preview->render_thread->render_mutex);
+@@ -3038,7 +3038,7 @@ redraw(RSPreviewWidget *preview, GdkRectangle *dirty_area)
+ 	g_mutex_lock(preview->render_thread->render_mutex);
+ 	gdk_threads_enter();
+ 	preview->render_thread->dirty_area = *dirty_area;
+-	g_cond_signal(preview->render_thread->render);
++	g_cond_signal(&preview->render_thread->render);
+ 	g_mutex_unlock(preview->render_thread->render_mutex);
+ }
+ 
+@@ -3052,7 +3052,7 @@ rs_preview_wait_for_render(RSPreviewWidget *preview)
+ 	g_mutex_lock(preview->render_thread->render_mutex);
+ 	while (preview->render_thread->render_pending) 
+ 	{
+-		g_cond_signal(preview->render_thread->render);
++		g_cond_signal(&preview->render_thread->render);
+ 		g_mutex_unlock(preview->render_thread->render_mutex);
+ 		g_usleep(1000);
+ 		g_mutex_lock(preview->render_thread->render_mutex);
+@@ -3065,32 +3065,32 @@ static gpointer
+ render_thread_func(gpointer _thread_info)
+ {
+ 	ThreadInfo* t = _thread_info;
+-	GTimeVal render_timeout;
++	gint64 render_timeout;
+ 	GdkRectangle dirty_area_accum;
+ 	g_mutex_lock(t->render_mutex);
+ 	while (1)
+ 	{
+ 		t->render_pending = FALSE;
+-		g_cond_wait(t->render, t->render_mutex);
++		g_cond_wait(&t->render, t->render_mutex);
+ 		t->render_pending = TRUE;
+ 		dirty_area_accum = t->dirty_area;
+ 		/* Let's see if we should get another update, wait until that stops happening */
+ 		/* If we receive a finish_rendering, also stop waiting for further events */
+ 		do {
+-			g_get_current_time(&render_timeout);
++			render_timeout = g_get_monotonic_time();
+ 			/* Get 400% percent of median update time and add that to current time */
+ 			gint wait = rs_get_median_update_time() * 4000;
+ 
+ 			/* If we haven't collected enough samples, wait 50ms */
+ 			if (wait <= 0)
+-				wait = 50 * 1000;
++				wait = 50 * G_TIME_SPAN_MILLISECOND;
+ 			/* Wait at least 30ms */
+-			if (wait <= 30 * 1000)
+-				wait = 50 * 1000;
++			if (wait <= 30 * G_TIME_SPAN_MILLISECOND)
++				wait = 50 * G_TIME_SPAN_MILLISECOND;
+ 
+-			g_time_val_add(&render_timeout, wait); 
++			render_timeout += wait;
+ 			gdk_rectangle_union(&dirty_area_accum, &t->dirty_area, &dirty_area_accum);
+-		} while (!t->finish_rendering && TRUE == g_cond_timed_wait(t->render, t->render_mutex, &render_timeout) && !t->finish_rendering);
++		} while (!t->finish_rendering && TRUE == g_cond_wait_until(&t->render, t->render_mutex, render_timeout) && !t->finish_rendering);
+ 		g_mutex_unlock(t->render_mutex);
+ 
+ 		/* Do the render */
+diff --git a/src/rs-store.c b/src/rs-store.c
+index 7ae26f7..14e5d33 100644
+--- a/src/rs-store.c
++++ b/src/rs-store.c
+@@ -1376,7 +1376,7 @@ rs_store_load_directory(RSStore *store, const gchar *path)
+ {
+ 	RSLibrary *library = rs_library_get_singleton();
+ 	static gboolean running = FALSE;
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
++	static GMutex lock;
+ 
+ 	GtkTreeSortable *sortable;
+ 	gboolean load_8bit = FALSE;
+@@ -1399,11 +1399,11 @@ rs_store_load_directory(RSStore *store, const gchar *path)
+ 	}
+ 
+ 	/* We should really only be running one instance at a time */
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	if (running)
+ 		return -1;
+ 	running = TRUE;
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 
+ 	rs_conf_get_boolean(CONF_LOAD_GDK, &load_8bit);
+ 	rs_conf_get_boolean(CONF_LOAD_RECURSIVE, &load_recursive);
+@@ -1456,9 +1456,9 @@ rs_store_load_directory(RSStore *store, const gchar *path)
+ 	/* Start the preloader */
+ 	predict_preload(store, TRUE);
+ 
+-	g_static_mutex_lock(&lock);
++	g_mutex_lock(&lock);
+ 	running = FALSE;
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 	/* Return the number of files successfully recognized */
+ 	return items;
+ }
+diff --git a/src/rs-tethered-shooting.c b/src/rs-tethered-shooting.c
+index 7f80b95..d4a4c2e 100644
+--- a/src/rs-tethered-shooting.c
++++ b/src/rs-tethered-shooting.c
+@@ -919,7 +919,7 @@ start_monitor(GObject *entry, gpointer user_data)
+ 		t->keep_thread_running = TRUE;
+ 		append_status(t, _("Starting Monitor Thread.\n"));
+ 		t->thread_type = ASYNC_THREAD_TYPE_MONITOR;
+-		t->async_thread_id = g_thread_create(start_thread_monitor, t, TRUE, NULL);
++		t->async_thread_id = g_thread_new("tethered monitor", start_thread_monitor, t);
+ 	}
+ 	else
+ 		append_status(t, _("Monitor Thread already running.\n"));
+@@ -992,7 +992,7 @@ start_interval_shooting(GObject *entry, gpointer user_data)
+ 	t->interval_toggle_button_signal = g_signal_connect(G_OBJECT(t->interval_toggle_button), "clicked", G_CALLBACK(stop_interval_shooting), t);
+ 	gtk_button_set_label(GTK_BUTTON(t->interval_toggle_button), _("Stop Shooting"));
+ 	GTK_CATCHUP();
+-	t->async_thread_id = g_thread_create(start_thread_interval, t, TRUE, NULL);
++	t->async_thread_id = g_thread_new("interval shooting", start_thread_interval, t);
+ }
+ 
+ static void 
+diff --git a/src/rs-toolbox.c b/src/rs-toolbox.c
+index b8dd0c4..d4892d1 100644
+--- a/src/rs-toolbox.c
++++ b/src/rs-toolbox.c
+@@ -434,11 +434,11 @@ static GtkRange *
+ basic_slider(RSToolbox *toolbox, const gint snapshot, GtkTable *table, const gint row, const BasicSettings *basic)
+ {
+ 	static RSSettings *settings;
+-	static GStaticMutex lock = G_STATIC_MUTEX_INIT;
+-	g_static_mutex_lock(&lock);
++	static GMutex lock;
++	g_mutex_lock(&lock);
+ 	if (!settings)
+ 		settings = rs_settings_new();
+-	g_static_mutex_unlock(&lock);
++	g_mutex_unlock(&lock);
+ 
+ 	GParamSpec *spec = g_object_class_find_property(G_OBJECT_GET_CLASS(settings), basic->property_name);
+ 	GParamSpecFloat *fspec = G_PARAM_SPEC_FLOAT(spec);
