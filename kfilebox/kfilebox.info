@@ -5,5 +5,5 @@ DOWNLOAD="http://downloads.sourceforge.net/project/kdropbox/kfilebox-0.4.9/Sourc
 REQUIRES=""
 MD5SUM="4b40b7a2e52c0d3d126dd4f8c404efdd"
 SHASUM="4fd431df784da537f6c77bc77bd78bdf3d6dd446"
-
-
+MAINTAINER="Corrado Franco"
+EMAIL="conraid (at) linux (dot) it"

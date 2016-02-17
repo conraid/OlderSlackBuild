@@ -6,4 +6,5 @@ FILENAME="tidy-20100503T2309.tar.xz"
 REQUIRES=""
 CONFLICTS="kdewebdev"
 MD5SUM="3034555993b2cf85ba8594742ebb7f98"
-
+MAINTAINER="Corrado Franco"
+EMAIL="conraid (at) linux (dot) it"

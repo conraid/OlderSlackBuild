@@ -5,3 +5,5 @@ DOWNLOAD="http://downloads.sourceforge.net/project/libpwmd/7.1.1/libpwmd-7.1.1.t
 REQUIRES="pwmnd cracklib libssh2"
 MD5SUM="532b8c7ead00f1ae24477f0ad7d4d56a"
 SHASUM="327fc06ff421573c6a581e4ec4a033ad301f48a1"
+MAINTAINER="Corrado Franco"
+EMAIL="conraid (at) linux (dot) it"
