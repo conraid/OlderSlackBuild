@@ -1,0 +1,127 @@
+#!/bin/sh
+#
+# Slackware build script for squidguard
+#
+# Copyright 2015-2016 Corrado Franco (http://conraid.net)
+# All rights reserved.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version, with the following exception:
+# the text of the GPL license may be omitted.
+
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of
+# merchantability or fitness for a particular purpose. Compiling,
+# interpreting, executing or merely reading the text of the program
+# may result in lapses of consciousness and/or very being, up to and
+# including the end of all existence and the Universe as we know it.
+# See the GNU General Public License for more details.
+
+# You may have received a copy of the GNU General Public License along
+# with this program (most likely, a file named COPYING).  If not, see
+# <http://www.gnu.org/licenses/>.
+#
+# Latest version of this SlackBuild at https://github.com/conraid/SlackBuilds
+
+set -eu
+
+CWD=$(pwd)
+
+PRGNAM=squidGuard
+SRCVERSION=1.5-beta
+VERSION=$(echo $VERSION | tr - _)
+BUILD=${BUILD:-1}
+TAG=${TAG:-cf}
+TMP=${TMP:-/tmp/pkg}
+PKG=$TMP/package-$PKGNAM
+OUTPUT=${OUTPUT:-/tmp}
+
+DOCFILES="ANNOUNCE CHANGELOG CONFIGURATION COPYING FAQ GPL INSTALL ISSUES.txt README* samples/ doc/"
+
+if [ -z ${ARCH:=""} ]; then
+  case "$( uname -m )" in
+    i?86) ARCH=i686 ;;
+    arm*) ARCH=arm ;;
+    *) ARCH=$( uname -m ) ;;
+  esac
+fi
+
+if [ "$ARCH" = "i586" ]; then
+  SLKCFLAGS="-O2 -march=i586 -mtune=i686"
+  LIBDIRSUFFIX=""
+elif [ "$ARCH" = "i686" ]; then
+  SLKCFLAGS="-O2 -march=i686 -mtune=i686"
+  LIBDIRSUFFIX=""
+elif [ "$ARCH" = "x86_64" ]; then
+  SLKCFLAGS="-O2 -fPIC -pipe -fomit-frame-pointer"
+  LIBDIRSUFFIX="64"
+else
+  SLKCFLAGS="-O2"
+  LIBDIRSUFFIX=""
+fi
+
+rm -rf $PKG
+mkdir -p $TMP $PKG $OUTPUT
+cd $TMP
+rm -rf $PRGNAM-$VERSION
+tar xvf $CWD/$PRGNAM-$VERSION.tar.gz
+cd $PRGNAM-$VERSION
+
+chown -R root:root .
+chmod -R u+w,go+r-w,a-s .
+
+# Apply patches (from http://www.squidguard.org/)
+for PATCH in $CWD/patches/*.patch; do
+  patch -p1 -i $PATCH
+done
+
+# Fix configure for mysql patch in Slackware64
+[ ${LIBDIRSUFFIX} == "64" ] && sed 's#for i in lib lib/mysql#for i in lib64 lib64/mysql#g' -i configure
+
+LDFLAGS="-L/usr/lib${LIBDIRSUFFIX}" \
+CFLAGS="$SLKCFLAGS" \
+CXXFLAGS="$SLKCFLAGS" \
+./configure \
+  --prefix=/usr \
+  --libdir=/usr/lib${LIBDIRSUFFIX} \
+  --sysconfdir=/etc \
+  --localstatedir=/var \
+  --mandir=/usr/man \
+  --infodir=/usr/info \
+  --docdir=/usr/doc/$PKGNAM-$VERSION \
+  --enable-static=no \
+  --enable-shared=yes \
+  --with-sg-config=/etc/squidguard/squidguard.conf \
+  --with-sg-logdir=/var/log/squidguard \
+  --with-sg-dbhome=/var/lib/squidguard \
+  --with-squiduser=nobody \
+  --with-db-inc=/usr/include/db48/ \
+  --with-mysql \
+  --host=$ARCH-slackware-linux \
+  --build=$ARCH-slackware-linux
+
+# Build:
+make
+
+# Install (Makefile not honor DESTDIR or prefix)
+install -Dsm755 src/squidGuard $PKG/usr/bin/squidGuard
+install -Dm644 samples/sample.conf $PKG/etc/squidguard/squidguard.conf.new
+mkdir -p $PKG/var/{lib,log}/squidguard
+chown nobody:nobody $PKG/var/{lib,log}/squidguard
+
+mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
+cp -a $DOCFILES $PKG/usr/doc/$PRGNAM-$VERSION || true
+rm -f $PKG/usr/doc/$PRGNAM-$VERSION/samples/*.in $PKG/usr/doc/$PRGNAM-$VERSION/samples/Makefile
+find $PKG/usr/doc/$PRGNAM-$VERSION -type d -exec chmod 755 {} \;
+
+install -Dm644 $CWD/${PKGNAM}.SlackBuild $PKG/usr/doc/$PRGNAM-$VERSION/${PKGNAM}.SlackBuild
+
+mkdir -p $PKG/install 
+cat $CWD/slack-desc > $PKG/install/slack-desc
+
+cat $CWD/doinst.sh > $PKG/install/doinst.sh
+
+cd $PKG
+/sbin/makepkg -l y -c n $OUTPUT/$PKGNAM-$VERSION-$ARCH-$BUILD${TAG}.txz

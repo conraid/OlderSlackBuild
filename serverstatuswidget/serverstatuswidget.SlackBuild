@@ -1,0 +1,121 @@
+#!/bin/sh
+#
+# Slackware build script for Server Status Widget
+#
+# Copyright 2011-2016 Corrado Franco (http://conraid.net)
+# All rights reserved.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version, with the following exception:
+# the text of the GPL license may be omitted.
+
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of
+# merchantability or fitness for a particular purpose. Compiling,
+# interpreting, executing or merely reading the text of the program
+# may result in lapses of consciousness and/or very being, up to and
+# including the end of all existence and the Universe as we know it.
+# See the GNU General Public License for more details.
+
+# You may have received a copy of the GNU General Public License along
+# with this program (most likely, a file named COPYING).  If not, see
+# <http://www.gnu.org/licenses/>.
+#
+# Latest version of this SlackBuild at https://github.com/conraid/SlackBuilds
+#
+set -eu
+
+CWD=$(pwd)
+
+PRGNAM=${PRGNAM:-serverstatuswidget}
+PKGNAM=$(echo $PRGNAM | tr A-Z a-z)
+VERSION=${VERSION:-1.5.1}
+VERSION=$(echo $VERSION | tr - _)
+BUILD=${BUILD:-1}
+TAG=${TAG:-cf}
+TMP=${TMP:-/tmp/pkg}
+PKG=$TMP/package-$PKGNAM
+OUTPUT=${OUTPUT:-/tmp}
+
+DOCFILES="COPYING INSTALL README"
+
+if [ -z ${ARCH:=""} ]; then
+    case "$( uname -m )" in
+  i?86) ARCH=i686 ;;
+  arm*) ARCH=arm ;;
+        *) ARCH=$( uname -m ) ;;
+    esac
+fi
+
+case "$ARCH" in
+    i586)
+  SLKCFLAGS="-O2 -march=i586 -mtune=i686"; CHOST="i586"
+  SLKLDFLAGS=""; LIBDIRSUFFIX=""
+        ;;
+    i686)
+  SLKCFLAGS="-O2 -march=i686 -pipe -fomit-frame-pointer"; CHOST="i586"
+  SLKLDFLAGS=""; LIBDIRSUFFIX=""
+        ;;
+    x86_64)
+  SLKCFLAGS="-O2 -fPIC -pipe -fomit-frame-pointer"; CHOST="x86_64"
+  SLKLDFLAGS="-L/lib64 -L/usr/lib64"; LIBDIRSUFFIX="64"
+        ;;
+    *)
+  SLKCFLAGS="-O2"; CHOST=$ARCH
+  SLKLDFLAGS=""; LIBDIRSUFFIX=""
+  ;;
+esac
+
+rm -rf $PKG
+mkdir -p $TMP $PKG
+cd $TMP
+rm -rf $PRGNAM-$VERSION
+tar xvf $CWD/101336-serverstatuswidget-1.5.1.tar.bz2
+cd $PRGNAM-$VERSION
+
+chown -R root:root .
+chmod -R u+w,go+r-w,a-s .
+
+mkdir -p build
+cd build
+cmake \
+  -DCMAKE_C_FLAGS:STRING="$SLKCFLAGS" \
+  -DCMAKE_CXX_FLAGS:STRING="$SLKCFLAGS" \
+  -DCMAKE_LD_FLAGS:STRING="$SLKLDFLAGS" \
+  -DCMAKE_BUILD_TYPE=none \
+  -DCMAKE_INSTALL_PREFIX=/usr \
+  -DMAN_INSTALL_DIR=/usr/man \
+  -DSYSCONF_INSTALL_DIR=/etc \
+  -DLIB_SUFFIX=${LIBDIRSUFFIX} \
+  ..
+
+make
+make DESTDIR=$PKG install/strip
+cd ..
+
+if [ -d $PKG/usr/man ]; then
+( cd $PKG/usr/man
+  find -type f -exec gzip -9 {} \;
+  for i in $(find -type l); do ln -s $(readlink $i).gz $i.gz; rm $i; done
+fi
+
+mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
+for i in ${DOCFILES}; do
+    if [ -e "${i}" ]; then
+        if ! [ -L "${i}" ]; then
+      cp -a "${i}" $PKG/usr/doc/$PRGNAM-$VERSION
+  else
+      cp -LRp "${i}" $PKG/usr/doc/$PRGNAM-$VERSION
+        fi
+    fi;
+done
+
+install -Dm644 $CWD/$PKGNAM.SlackBuild $PKG/usr/doc/$PRGNAM-$VERSION/$PKGNAM.SlackBuild
+
+mkdir -p $PKG/install 
+cat $CWD/slack-desc > $PKG/install/slack-desc
+
+cd $PKG
+/sbin/makepkg -l y -c n $OUTPUT/$PKGNAM-$VERSION-$ARCH-$BUILD${TAG}.txz
