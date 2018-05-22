@@ -1,0 +1,106 @@
+Description: fix spelling error: "incomming" to "incoming"
+Author: Joao Shawn Sörbom
+Last-Update: 2014-09-25
+
+--- a/kcm/kcm.cpp
++++ b/kcm/kcm.cpp
+@@ -425,7 +425,7 @@
+     args["cmd"]="setDefaults";
+     args["xml"]=QString("<defaults incoming=\"")+toString((Types::Policy)defaultIncomingPolicy->currentIndex())+QString("\" />");
+     modifyAction.setArguments(args);
+-    statusLabel->setText(i18n("Setting firewall default incomming policy..."));
++    statusLabel->setText(i18n("Setting firewall default incoming policy..."));
+     blocker->setActive(true);
+     modifyAction.execute();
+ }
+--- a/kcm/rule.cpp
++++ b/kcm/rule.cpp
+@@ -281,7 +281,7 @@
+ 
+ QString Rule::actionStr() const
+ {
+-    return incoming ? i18nc("firewallAction incomming", "%1 incoming", Types::toString(action, true))
++    return incoming ? i18nc("firewallAction incoming", "%1 incoming", Types::toString(action, true))
+                     : i18nc("firewallAction outgoing", "%1 outgoing", Types::toString(action, true));
+ }
+ 
+--- a/po/es.po
++++ b/po/es.po
+@@ -156,7 +156,7 @@
+ msgstr "Configurando el nivel del registro del cortafuegos ..."
+ 
+ #: kcm/kcm.cpp:428
+-msgid "Setting firewall default incomming policy..."
++msgid "Setting firewall default incoming policy..."
+ msgstr ""
+ "Configurando la política predeterminada para conexiones entrantes en el "
+ "cortafuegos ..."
+@@ -408,7 +408,7 @@
+ 
+ #: kcm/rule.cpp:284
+ #, fuzzy
+-msgctxt "firewallAction incomming"
++msgctxt "firewallAction incoming"
+ msgid "%1 incoming"
+ msgstr "%1 entrante"
+ 
+--- a/po/fr.po
++++ b/po/fr.po
+@@ -156,7 +156,7 @@
+ msgstr "Configuration du niveau de trace en cours..."
+ 
+ #: kcm/kcm.cpp:428
+-msgid "Setting firewall default incomming policy..."
++msgid "Setting firewall default incoming policy..."
+ msgstr ""
+ "Chargement de la politique par défaut pour les connexions entrantes... "
+ 
+@@ -399,7 +399,7 @@
+ msgstr "%1 (%2)"
+ 
+ #: kcm/rule.cpp:284
+-msgctxt "firewallAction incomming"
++msgctxt "firewallAction incoming"
+ msgid "%1 incoming"
+ msgstr "%1 les entrées"
+ 
+--- a/po/kcm_ufw.pot
++++ b/po/kcm_ufw.pot
+@@ -155,7 +155,7 @@
+ msgstr ""
+ 
+ #: kcm/kcm.cpp:428
+-msgid "Setting firewall default incomming policy..."
++msgid "Setting firewall default incoming policy..."
+ msgstr ""
+ 
+ #: kcm/kcm.cpp:439
+@@ -381,7 +381,7 @@
+ msgstr ""
+ 
+ #: kcm/rule.cpp:284
+-msgctxt "firewallAction incomming"
++msgctxt "firewallAction incoming"
+ msgid "%1 incoming"
+ msgstr ""
+ 
+--- a/po/lt.po
++++ b/po/lt.po
+@@ -157,7 +157,7 @@
+ msgstr "Nustatomas ugniasienės žurnalizavimo lygmuo..."
+ 
+ #: kcm/kcm.cpp:428
+-msgid "Setting firewall default incomming policy..."
++msgid "Setting firewall default incoming policy..."
+ msgstr "Nustatoma ugniasienės numatytoji įeinančių prisijungimų politika..."
+ 
+ #: kcm/kcm.cpp:439
+@@ -397,7 +397,7 @@
+ msgstr "%1 (%2)"
+ 
+ #: kcm/rule.cpp:284
+-msgctxt "firewallAction incomming"
++msgctxt "firewallAction incoming"
+ msgid "%1 incoming"
+ msgstr "%1 įeinančius"
+ 

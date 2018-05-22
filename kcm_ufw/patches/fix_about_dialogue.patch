@@ -1,0 +1,16 @@
+Description: Update license in "About" dialogue to match that of the COPYING
+             file. Updated years of copyright to 2011-2014.
+Author: Shawn Sörbom <shawn@sorbom.com>
+Last-Update: 2014-09-26
+
+--- a/kcm/kcm.cpp
++++ b/kcm/kcm.cpp
+@@ -196,7 +196,7 @@
+     setButtons(Help|Default);
+ 
+     KAboutData *about = new KAboutData("kcm_ufw", 0, ki18n("UFW Settings"), VERSION, ki18n("GUI front-end for Uncomplicated FireWall"),
+-                                       KAboutData::License_GPL, ki18n("(C) Craig Drummond, 2011"), KLocalizedString(), QByteArray(),
++                                       KAboutData::License_GPL_V3, ki18n("(C) Craig Drummond, 2011-2014"), KLocalizedString(), QByteArray(),
+                                        "craig.p.drummond@gmail.com");
+     about->addAuthor(ki18n("Craig Drummond"), ki18n("Developer and maintainer"), "craig.p.drummond@gmail.com");
+     setAboutData(about);
